@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Microsoft.Win32;
+using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Data;
@@ -6,15 +7,40 @@ using System.Drawing;
 using System.IO;
 using System.Linq;
 using System.Reflection.Emit;
+using System.Runtime.InteropServices;
+using System.Runtime.InteropServices.ComTypes;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using Xbim.Ifc;
 using Xbim.Ifc4.Interfaces;
 using static System.Windows.Forms.LinkLabel;
+using static System.Windows.Forms.VisualStyles.VisualStyleElement.TaskbarClock;
 
 namespace CURIOsity
 {
+    // auxiliary class to read INI files
+    public class IniFile
+    {
+        public string Path;
+        [DllImport("kernel32")]
+        private static extern long WritePrivateProfileString(string section, string key, string val, string filePath);
+        [DllImport("kernel32")]
+        private static extern int GetPrivateProfileString(string section, string key, string def, StringBuilder retVal, int size, string filePath);
+
+        public IniFile(string path)
+        {
+            Path = path;
+        }
+
+        public string Read(string section, string key)
+        {
+            StringBuilder stringBuilder = new StringBuilder(255);
+            GetPrivateProfileString(section, key, "", stringBuilder, 255, Path);
+            return stringBuilder.ToString();
+        }
+    }
+
     public partial class CuriosityForm : Form
     {
         // class-level dictionaries to store moving element data coming from CURIO in
@@ -27,12 +53,98 @@ namespace CURIOsity
         Dictionary<string, int> bimLeftPanelApertures = new Dictionary<string, int>();
         Dictionary<string, int> bimRightPanelApertures = new Dictionary<string, int>();
 
+        // INI file and timers for automatic file check and usage
+        private string iniPath = "D:\\CURIOsity\\Configuration\\conf.ini";
+
+        private System.Windows.Forms.Timer textFileCheckTimer;
+        private string textFileCheckDirectory = "D:\\CURIOsity\\IO_files"; // default directory, can be changed in INI file
+        private string textFileCheckName = "Fotografia_sala_CURIO.txt"; // default file name, can be changed in INI file
+        private int textFileCheckInterval = 5000; // default to 5 seconds, can be changed in INI file
+        private bool textFileCheckActive = true; // default to true, can be changed in INI file
+
+        private System.Windows.Forms.Timer bimFileCheckTimer;
+        private string bimFileCheckDirectory = "D:\\CURIOsity\\IO_files"; // default directory, can be changed in INI file
+        private string bimFileCheckName = "Model.ifc"; // default file name, can be changed in INI file
+        private int bimFileCheckInterval = 5000; // default to 5 seconds, can be changed in INI file
+        private bool bimFileCheckActive = true; // default to true, can be changed in INI file
+
+
         public CuriosityForm()
         {
             InitializeComponent();
             this.Icon = new Icon("icon.ico");
         }
 
+        protected override void OnLoad(EventArgs e)
+        {
+            base.OnLoad(e);
+
+            // read INI file
+            if (File.Exists(iniPath))
+            {
+                var iniFile = new IniFile(iniPath);
+
+                // text file check parameters
+                textFileCheckDirectory = iniFile.Read("TextFileCheck", "Directory");
+                textFileCheckName = iniFile.Read("TextFileCheck", "FileName");
+                int.TryParse(iniFile.Read("TextFileCheck", "Interval"), out textFileCheckInterval);
+                bool.TryParse(iniFile.Read("TextFileCheck", "Active"), out textFileCheckActive);
+
+                // BIM file check parameters
+                bimFileCheckDirectory = iniFile.Read("BimFileCheck", "Directory");
+                bimFileCheckName = iniFile.Read("BimFileCheck", "FileName");
+                int.TryParse(iniFile.Read("BimFileCheck", "Interval"), out bimFileCheckInterval);
+                bool.TryParse(iniFile.Read("BimFileCheck", "Active"), out bimFileCheckActive);
+            }
+
+            // initialize timers
+            InitTimers();
+        }
+
+        // timer methods
+        protected void InitTimers()
+        {
+            // initialize CURIO file timer if active
+            if (textFileCheckActive)
+            {
+                textFileCheckTimer = new System.Windows.Forms.Timer();
+                textFileCheckTimer.Interval = textFileCheckInterval;
+                textFileCheckTimer.Tick += TextFileCheckTimer_Tick;
+                textFileCheckTimer.Start();
+            }
+
+            // initialize BIM file timer if active
+            if (bimFileCheckActive)
+            {
+                bimFileCheckTimer = new System.Windows.Forms.Timer();
+                bimFileCheckTimer.Interval = bimFileCheckInterval;
+                bimFileCheckTimer.Tick += BimFileCheckTimer_Tick;
+                bimFileCheckTimer.Start();
+            }
+        }
+
+        private void TextFileCheckTimer_Tick(object sender, EventArgs e)
+        {
+            string filePath = Path.Combine(textFileCheckDirectory, textFileCheckName);
+            if (File.Exists(filePath))
+            {
+                // file found, load it
+                LoadTextFile(filePath);
+            }
+        }
+
+        private void BimFileCheckTimer_Tick(object sender, EventArgs e)
+        {
+            string filePath = Path.Combine(bimFileCheckDirectory, bimFileCheckName);
+            if (File.Exists(filePath))
+            {
+                // file found, load it
+                LoadBimFile(filePath);
+            }
+        }
+
+
+        // button methods
         private void LoadTextButton_OnClick(object sender, EventArgs e)
         {
             using (OpenFileDialog loadTextDialog = new OpenFileDialog())
@@ -40,41 +152,7 @@ namespace CURIOsity
                 loadTextDialog.Filter = "Text file (*.txt)|*.txt|All files (*.*)|*.*";
                 if (loadTextDialog.ShowDialog() == DialogResult.OK)
                 {
-                    string fileName = loadTextDialog.FileName;
-                    try
-                    {
-                        foreach (var line in File.ReadLines(fileName).Skip(3).Take(13))
-                        {
-                            curioStagecraftEquipmentPositions.Add(line.Substring(0, 6), int.Parse(line.Substring(9, 5)));
-                        }
-
-                        foreach(var line in File.ReadLines(fileName).Skip(17).Take(26))
-                        {
-                            curioLeftPanelApertures.Add(line.Substring(0, 6), int.Parse(line.Substring(9, 5)));
-                        }
-
-                        foreach (var line in File.ReadLines(fileName).Skip(44).Take(26))
-                        {
-                            curioRightPanelApertures.Add(line.Substring(0, 6), int.Parse(line.Substring(9, 5)));
-                        }
-
-                        // empty and refill ListBoxes
-                        curioStagecraftListBox.Items.Clear();
-                        foreach (var pair in curioStagecraftEquipmentPositions)
-                            curioStagecraftListBox.Items.Add($"{pair.Key}: {pair.Value} mm");
-
-                        curioLeftPanelsListBox.Items.Clear();
-                        foreach (var pair in curioLeftPanelApertures)
-                            curioLeftPanelsListBox.Items.Add($"{pair.Key}: {pair.Value} mm");
-
-                        curioRightPanelsListBox.Items.Clear();
-                        foreach (var pair in curioRightPanelApertures)
-                            curioRightPanelsListBox.Items.Add($"{pair.Key}: {pair.Value} mm");
-                    }
-                    catch (Exception error)
-                    {
-                        MessageBox.Show("Error while reading text file: " + error.Message + "Please make sure the text file is formatted as expected (described in the readme file)");
-                    }
+                    LoadTextFile(loadTextDialog.FileName);
                 }
             }
         }
@@ -86,98 +164,7 @@ namespace CURIOsity
                 loadBimDialog.Filter = "BIM file (*.ifc)|*.ifc|All files (*.*)|*.*";
                 if (loadBimDialog.ShowDialog() == DialogResult.OK)
                 {
-                    string fileName = loadBimDialog.FileName;
-                    try
-                    {
-                        // open the BIM file
-                        using (var model = IfcStore.Open(fileName))
-                        {/*
-                            //let's explore the model to find the correct entity for the pivoting panels (and the stagecraft equipment pieces, possibly)
-                            var allInstances = model.Instances;
-                            var interfaceNames = new HashSet<string>();
-                            foreach (var instance in allInstances)
-                            {
-                                var type = instance.GetType();
-                                interfaceNames.Add(type.Name);
-                            }
-                            foreach (var name in interfaceNames.OrderBy(n => n))
-                            {
-                                Console.WriteLine(name);
-                            }
-
-                            // get pivoting panels from the model (extracted data should be IEnumerable objects whose elements are sorted from 1 to 26)
-                            //var pivotingPanels = model.Instances.OfType<IIfcPanel>();
-                            //var bimLeftPanels = model.Instances.Where<IIfcPanel>(p => p.IsTypedBy.LeftSide());
-                            //var bimRightPanels = model.Instances.Where<IIfcPanel>(p => p.IsTypedBy.RightSide());
-
-                            //let's explore the panels in the IFC file to find the correct property set and property name for the pivoting panel aperture
-
-                            //get information about one of the panels
-                            //var firstPanel = model.Instances.FirstOrDefault<IIfcPanel>();
-                            //Console.WriteLine($"Panel ID: {firstPanel.GlobalId}, Name: {firstPanel.Name}");
-
-                            //get all single-value properties of the panel
-                            //var properties = firstPanel.IsDefinedBy
-                            //    .Where(r => r.RelatingPropertyDefinition is IIfcPropertySet)
-                            //    .SelectMany(r => ((IIfcPropertySet)r.RelatingPropertyDefinition).HasProperties)
-                            //    .OfType<IIfcPropertySingleValue>();
-                            //foreach (var property in properties)
-                            //    Console.WriteLine($"Property: {property.Name}, Value: {property.NominalValue}");
-
-                            // store panel names as keys and aperture values as values in the class-level dictionaries
-
-                            foreach (var leftPanel in bimLeftPanels)
-                            {
-                                var aperture = leftPanel.IsDefinedBy
-                                    .Where(r => r.RelatingPropertyDefinition is IIfcPropertySet)
-                                    .SelectMany(r => ((IIfcPropertySet)r.RelatingPropertyDefinition).HasProperties)
-                                    .OfType<IIfcPropertySingleValue>()
-                                    .Where(p => p.Name = "Aperture");
-
-                                bimLeftPanelApertures.Add(leftPanel.Name, int.Parse(aperture.NominalValue));
-                            }
-
-                            foreach (var rightPanel in bimRightPanels)
-                            {
-                                var aperture = rightPanel.IsDefinedBy
-                                    .Where(r => r.RelatingPropertyDefinition is IIfcPropertySet)
-                                    .SelectMany(r => ((IIfcPropertySet)r.RelatingPropertyDefinition).HasProperties)
-                                    .OfType<IIfcPropertySingleValue>()
-                                    .Where(p => p.Name = "Aperture");
-
-                                bimRightPanelApertures.Add(rightPanel.Name, int.Parse(aperture.NominalValue));
-                            }
-
-                            // store stagecraft equipment names as keys and positions as values in the class-level dictionary
-                            foreach (var piece in bimStagecraftEquipment)
-                            {
-                                var position = piece.IsDefinedBy
-                                    .Where(r => r.RelatingPropertyDefinition is IIfcPropertySet)
-                                    .SelectMany(r => ((IIfcPropertySet)r.RelatingPropertyDefinition).HasProperties)
-                                    .OfType<IIfcPropertySingleValue>()
-                                    .Where(p => p.Name = "Position");
-
-                                bimStagecraftEquipmentPositions.Add(piece.Name, int.Parse(position.NominalValue));
-                            }*/
-                        }
-
-                        // empty and refill ListBoxes
-                        bimStagecraftListBox.Items.Clear();
-                        foreach (var pair in bimStagecraftEquipmentPositions)
-                            bimStagecraftListBox.Items.Add($"{pair.Key}: {pair.Value} mm");
-
-                        bimLeftPanelsListBox.Items.Clear();
-                        foreach (var pair in bimLeftPanelApertures)
-                            bimLeftPanelsListBox.Items.Add($"{pair.Key}: {pair.Value} mm");
-
-                        bimRightPanelsListBox.Items.Clear();
-                        foreach (var pair in bimRightPanelApertures)
-                            bimRightPanelsListBox.Items.Add($"{pair.Key}: {pair.Value} mm");
-                    }
-                    catch (Exception error)
-                    {
-                        MessageBox.Show("Error while reading BIM file: " + error.Message);
-                    }
+                    LoadBimFile(loadBimDialog.FileName);
                 }
             }
         }
@@ -189,7 +176,7 @@ namespace CURIOsity
                 updateBimDialog.Filter = "BIM file (*.ifc)|*.ifc|All files (*.*)|*.*";
                 if (updateBimDialog.ShowDialog() == DialogResult.OK)
                 {
-                    string fileName = updateBimDialog.FileName;
+                    string filePath = updateBimDialog.FileName;
                     try
                     {
                         var editor = new XbimEditorCredentials
@@ -204,7 +191,7 @@ namespace CURIOsity
                         };
 
                         // open the BIM file
-                        using (var model = IfcStore.Open(fileName, editor))
+                        using (var model = IfcStore.Open(filePath, editor))
                         {/*
                             // start a transaction to modify the BIM file for left wall pivoting panel apertures
                             using (var leftPanelApertureUpdate = model.BeginTransaction("Left wall pivoting panel aperture update"))
@@ -319,6 +306,208 @@ namespace CURIOsity
                     }
                 }
             }
+        }
+
+
+        // event method to load text file
+        private void LoadTextFile(string filePath)
+        {
+            try
+            {
+                // save current ListBox vertical scrolling positions to restore them later
+                int curioStagecraftListBoxTopIndex = curioStagecraftListBox.TopIndex;
+                int curioLeftPanelsListBoxTopIndex = curioLeftPanelsListBox.TopIndex;
+                int curioRightPanelsListBoxTopIndex = curioRightPanelsListBox.TopIndex;
+
+                // empty the class-level dictionaries
+                curioStagecraftEquipmentPositions.Clear();
+                curioLeftPanelApertures.Clear();
+                curioRightPanelApertures.Clear();
+
+                // read the text file and fill the class-level dictionaries
+                foreach (var line in File.ReadLines(filePath).Skip(3).Take(13))
+                {
+                    curioStagecraftEquipmentPositions.Add(line.Substring(0, 6), int.Parse(line.Substring(9, 5)));
+                }
+
+                foreach (var line in File.ReadLines(filePath).Skip(17).Take(26))
+                {
+                    curioLeftPanelApertures.Add(line.Substring(0, 6), int.Parse(line.Substring(9, 5)));
+                }
+
+                foreach (var line in File.ReadLines(filePath).Skip(44).Take(26))
+                {
+                    curioRightPanelApertures.Add(line.Substring(0, 6), int.Parse(line.Substring(9, 5)));
+                }
+
+                // empty and refill corresponding ListBoxes
+                curioStagecraftListBox.Items.Clear();
+                foreach (var pair in curioStagecraftEquipmentPositions)
+                {
+                    curioStagecraftListBox.Items.Add($"{pair.Key}: {pair.Value} mm");
+                }
+
+                curioLeftPanelsListBox.Items.Clear();
+                foreach (var pair in curioLeftPanelApertures)
+                {
+                    curioLeftPanelsListBox.Items.Add($"{pair.Key}: {pair.Value} mm");
+                }
+
+                curioRightPanelsListBox.Items.Clear();
+                foreach (var pair in curioRightPanelApertures)
+                {
+                    curioRightPanelsListBox.Items.Add($"{pair.Key}: {pair.Value} mm");
+                }
+
+                // restore previously saved ListBox vertical scrolling positions
+                if (curioStagecraftListBox.Items.Count > curioStagecraftListBoxTopIndex)
+                {
+                    curioStagecraftListBox.TopIndex = curioStagecraftListBoxTopIndex;
+                }
+
+                if (curioLeftPanelsListBox.Items.Count > curioLeftPanelsListBoxTopIndex)
+                {
+                    curioLeftPanelsListBox.TopIndex = curioLeftPanelsListBoxTopIndex;
+                }
+                    
+                if (curioRightPanelsListBox.Items.Count > curioRightPanelsListBoxTopIndex)
+                {
+                    curioRightPanelsListBox.TopIndex = curioRightPanelsListBoxTopIndex;
+                }
+            }
+            catch (Exception error)
+            {
+                MessageBox.Show("Error while reading text file: " + error.Message + "Please make sure the text file is formatted as expected (described in the readme file)");
+            }
+        }
+
+        // event method to load BIM file
+        private void LoadBimFile(string filePath)
+        {
+            try
+            {
+                // save current ListBox vertical scrolling positions to restore them later
+                int bimStagecraftListBoxTopIndex = bimStagecraftListBox.TopIndex;
+                int bimLeftPanelsListBoxTopIndex = bimLeftPanelsListBox.TopIndex;
+                int bimRightPanelsListBoxTopIndex = bimRightPanelsListBox.TopIndex;
+
+                // empty the class-level dictionaries
+                bimStagecraftEquipmentPositions.Clear();
+                bimLeftPanelApertures.Clear();
+                bimRightPanelApertures.Clear();
+
+                using (var model = IfcStore.Open(filePath))
+                {
+                    /*
+                    //let's explore the model to find the correct entity for the pivoting panels (and the stagecraft equipment pieces, possibly)
+                    var allInstances = model.Instances;
+                    var interfaceNames = new HashSet<string>();
+                    foreach (var instance in allInstances)
+                    {
+                        var type = instance.GetType();
+                        interfaceNames.Add(type.Name);
+                    }
+                    foreach (var name in interfaceNames.OrderBy(n => n))
+                    {
+                        Console.WriteLine(name);
+                    }
+
+                    // get pivoting panels from the model (extracted data should be IEnumerable objects whose elements are sorted from 1 to 26)
+                    //var pivotingPanels = model.Instances.OfType<IIfcPanel>();
+                    //var bimLeftPanels = model.Instances.Where<IIfcPanel>(p => p.IsTypedBy.LeftSide());
+                    //var bimRightPanels = model.Instances.Where<IIfcPanel>(p => p.IsTypedBy.RightSide());
+
+                    //let's explore the panels in the IFC file to find the correct property set and property name for the pivoting panel aperture
+
+                    //get information about one of the panels
+                    //var firstPanel = model.Instances.FirstOrDefault<IIfcPanel>();
+                    //Console.WriteLine($"Panel ID: {firstPanel.GlobalId}, Name: {firstPanel.Name}");
+
+                    //get all single-value properties of the panel
+                    //var properties = firstPanel.IsDefinedBy
+                    //    .Where(r => r.RelatingPropertyDefinition is IIfcPropertySet)
+                    //    .SelectMany(r => ((IIfcPropertySet)r.RelatingPropertyDefinition).HasProperties)
+                    //    .OfType<IIfcPropertySingleValue>();
+                    //foreach (var property in properties)
+                    //    Console.WriteLine($"Property: {property.Name}, Value: {property.NominalValue}");
+
+                    // store panel names as keys and aperture values as values in the class-level dictionaries
+
+                    foreach (var leftPanel in bimLeftPanels)
+                    {
+                        var aperture = leftPanel.IsDefinedBy
+                            .Where(r => r.RelatingPropertyDefinition is IIfcPropertySet)
+                            .SelectMany(r => ((IIfcPropertySet)r.RelatingPropertyDefinition).HasProperties)
+                            .OfType<IIfcPropertySingleValue>()
+                            .Where(p => p.Name = "Aperture");
+
+                        bimLeftPanelApertures.Add(leftPanel.Name, int.Parse(aperture.NominalValue));
+                    }
+
+                    foreach (var rightPanel in bimRightPanels)
+                    {
+                        var aperture = rightPanel.IsDefinedBy
+                            .Where(r => r.RelatingPropertyDefinition is IIfcPropertySet)
+                            .SelectMany(r => ((IIfcPropertySet)r.RelatingPropertyDefinition).HasProperties)
+                            .OfType<IIfcPropertySingleValue>()
+                            .Where(p => p.Name = "Aperture");
+
+                        bimRightPanelApertures.Add(rightPanel.Name, int.Parse(aperture.NominalValue));
+                    }
+
+                    // store stagecraft equipment names as keys and positions as values in the class-level dictionary
+                    foreach (var piece in bimStagecraftEquipment)
+                    {
+                        var position = piece.IsDefinedBy
+                            .Where(r => r.RelatingPropertyDefinition is IIfcPropertySet)
+                            .SelectMany(r => ((IIfcPropertySet)r.RelatingPropertyDefinition).HasProperties)
+                            .OfType<IIfcPropertySingleValue>()
+                            .Where(p => p.Name = "Position");
+
+                        bimStagecraftEquipmentPositions.Add(piece.Name, int.Parse(position.NominalValue));
+                    }*/
+                }
+
+                // empty and refill corresponding ListBoxes
+                bimStagecraftListBox.Items.Clear();
+                foreach (var pair in bimStagecraftEquipmentPositions)
+                {
+                    bimStagecraftListBox.Items.Add($"{pair.Key}: {pair.Value} mm");
+                }
+
+                bimLeftPanelsListBox.Items.Clear();
+                foreach (var pair in bimLeftPanelApertures)
+                {
+                    bimLeftPanelsListBox.Items.Add($"{pair.Key}: {pair.Value} mm");
+                }
+
+                bimRightPanelsListBox.Items.Clear();
+                foreach (var pair in bimRightPanelApertures)
+                {
+                    bimRightPanelsListBox.Items.Add($"{pair.Key}: {pair.Value} mm");
+                }
+
+                // restore previously saved ListBox vertical scrolling positions
+                if (bimStagecraftListBox.Items.Count > bimStagecraftListBoxTopIndex)
+                {
+                    bimStagecraftListBox.TopIndex = bimStagecraftListBoxTopIndex;
+                }
+                    
+                if (bimLeftPanelsListBox.Items.Count > bimLeftPanelsListBoxTopIndex)
+                {
+                    bimLeftPanelsListBox.TopIndex = bimLeftPanelsListBoxTopIndex;
+                }
+                    
+                if (bimRightPanelsListBox.Items.Count > bimRightPanelsListBoxTopIndex)
+                {
+                    bimRightPanelsListBox.TopIndex = bimRightPanelsListBoxTopIndex;
+                }
+            }
+            catch (Exception error)
+            {
+                MessageBox.Show("Error while reading BIM file: " + error.Message);
+            }
+
         }
 
         protected override void OnResize(EventArgs e)

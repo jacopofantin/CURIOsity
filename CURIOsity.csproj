@@ -85,9 +85,7 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="CuriosityForm.cs">
-      <SubType>Form</SubType>
-    </Compile>
+    <Compile Include="CuriosityForm.cs" />
     <Compile Include="CuriosityForm.Designer.cs">
       <DependentUpon>CuriosityForm.cs</DependentUpon>
     </Compile>
