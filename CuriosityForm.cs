@@ -1,5 +1,6 @@
 ﻿using Microsoft.Isam.Esent.Interop;
 using Microsoft.Win32;
+using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
@@ -7,6 +8,7 @@ using System.Data;
 using System.Drawing;
 using System.IO;
 using System.Linq;
+using System.Net.Http;
 using System.Reflection;
 using System.Reflection.Emit;
 using System.Runtime.InteropServices;
@@ -45,17 +47,17 @@ namespace CURIOsity
 
     public partial class CuriosityForm : Form
     {
-        // class-level dictionaries to store moving element data coming from CURIO in
-        Dictionary<string, int> curioStagecraftEquipmentPositions = new Dictionary<string, int>();
-        Dictionary<string, int> curioLeftPanelApertures = new Dictionary<string, int>();
-        Dictionary<string, int> curioRightPanelApertures = new Dictionary<string, int>();
+        // class-level dictionaries to store moving element data coming from the real hall in
+        Dictionary<string, int> hallStagecraftEquipmentPositions = new Dictionary<string, int>();
+        Dictionary<string, int> hallLeftPanelApertures = new Dictionary<string, int>();
+        Dictionary<string, int> hallRightPanelApertures = new Dictionary<string, int>();
 
         // class-level dictionaries to store moving element data coming from the BIM model in
         Dictionary<string, int> bimStagecraftEquipmentPositions = new Dictionary<string, int>();
         Dictionary<string, int> bimLeftPanelApertures = new Dictionary<string, int>();
         Dictionary<string, int> bimRightPanelApertures = new Dictionary<string, int>();
 
-        // class-level dictionaries to store correspondences between CURIO IDs and BIM model element names
+        // class-level dictionaries to store correspondences between hall IDs and BIM model element names
         Dictionary<string, string> stagecraftEquipmentMapping = new Dictionary<string, string>();
         Dictionary<string, string> leftPanelMapping = new Dictionary<string, string>();
         Dictionary<string, string> rightPanelMapping = new Dictionary<string, string>();
@@ -65,16 +67,16 @@ namespace CURIOsity
 
 
         // INI file and timers for automatic file check and usage
-        private string iniPath = "D:\\CURIOsity\\Configuration\\conf.ini";
+        private string iniPath = "D:\\Dateien\\CURIOsity\\Configuration\\conf.ini";
 
-        private System.Windows.Forms.Timer textFileCheckTimer;
-        private string textFileCheckDirectory = "D:\\CURIOsity\\IO_files"; // default directory, can be changed in INI file
-        private string textFileCheckName = "Fotografia_sala_CURIO.txt"; // default file name, can be changed in INI file
-        private int textFileCheckInterval = 5000; // default to 5 seconds, can be changed in INI file
-        private bool textFileCheckActive = true; // default to true, can be changed in INI file
+        private System.Windows.Forms.Timer hallFileCheckTimer;
+        private string hallFileCheckDirectory = "D:\\Dateien\\CURIOsity\\IO_files"; // default directory, can be changed in INI file
+        private string hallFileCheckName = "Fotografia_sala_CURIO.txt"; // default file name, can be changed in INI file
+        private int hallFileCheckInterval = 5000; // default to 5 seconds, can be changed in INI file
+        private bool hallFileCheckActive = true; // default to true, can be changed in INI file
 
         private System.Windows.Forms.Timer bimFileCheckTimer;
-        private string bimFileCheckDirectory = "D:\\CURIOsity\\IO_files"; // default directory, can be changed in INI file
+        private string bimFileCheckDirectory = "D:\\Dateien\\CURIOsity\\IO_files"; // default directory, can be changed in INI file
         private string bimFileCheckName = "Model.ifc"; // default file name, can be changed in INI file
         private int bimFileCheckInterval = 5000; // default to 5 seconds, can be changed in INI file
         private bool bimFileCheckActive = true; // default to true, can be changed in INI file
@@ -90,13 +92,13 @@ namespace CURIOsity
         // timer methods
         protected void InitTimers()
         {
-            // initialize CURIO file timer if active
-            if (textFileCheckActive)
+            // initialize hall file timer if active
+            if (hallFileCheckActive)
             {
-                textFileCheckTimer = new System.Windows.Forms.Timer();
-                textFileCheckTimer.Interval = textFileCheckInterval;
-                textFileCheckTimer.Tick += TextFileCheckTimer_Tick;
-                textFileCheckTimer.Start();
+                hallFileCheckTimer = new System.Windows.Forms.Timer();
+                hallFileCheckTimer.Interval = hallFileCheckInterval;
+                hallFileCheckTimer.Tick += HallFileCheckTimer_Tick;
+                hallFileCheckTimer.Start();
             }
 
             // initialize BIM file timer if active
@@ -109,13 +111,35 @@ namespace CURIOsity
             }
         }
 
-        private void TextFileCheckTimer_Tick(object sender, EventArgs e)
+        private async void HallFileCheckTimer_Tick(object sender, EventArgs e)
         {
-            string filePath = Path.Combine(textFileCheckDirectory, textFileCheckName);
+            string filePath = Path.Combine(hallFileCheckDirectory, hallFileCheckName);
             if (File.Exists(filePath))
             {
-                // file found, load it
-                LoadTextFile(filePath);
+                string apiUrl;
+                string fileExtension = Path.GetExtension(filePath).ToLowerInvariant();
+
+                switch (fileExtension)
+                {
+                    case ".txt":
+                        apiUrl = "https://localhost:44307/api/import/txt";
+                        break;
+                    case ".xls":
+                    case ".xlsx":
+                        apiUrl = "https://localhost:44307/api/import/excel";
+                        break;
+                    case ".json":
+                        apiUrl = "https://localhost:44307/api/import/json";
+                        break;
+                    case ".xml":
+                        apiUrl = "https://localhost:44307/api/import/xml";
+                        break;
+                    default:
+                        MessageBox.Show("File extension not supported: " + fileExtension);
+                        return;
+                }
+
+                await LoadHallFile(apiUrl, filePath);
             }
         }
 
@@ -131,14 +155,37 @@ namespace CURIOsity
 
 
         // button methods
-        private void LoadTextButton_OnClick(object sender, EventArgs e)
+        private async void LoadHallButton_OnClick(object sender, EventArgs e)
         {
-            using (OpenFileDialog loadTextDialog = new OpenFileDialog())
+            using (OpenFileDialog loadHallDialog = new OpenFileDialog())
             {
-                loadTextDialog.Filter = "Text file (*.txt)|*.txt|All files (*.*)|*.*";
-                if (loadTextDialog.ShowDialog() == DialogResult.OK)
+                loadHallDialog.Filter = "Text files (*.txt)|*.txt|Excel spreadsheet (*.xls;*.xlsx)|*.xls;*.xlsx|JavaScript Object Notation file (*.json)|*.json|eXtensible Markup Language file (*.xml)|*.xml| All files (*.*)|*.*";
+                if (loadHallDialog.ShowDialog() == DialogResult.OK)
                 {
-                    LoadTextFile(loadTextDialog.FileName);
+                    string apiUrl;
+                    string fileExtension = Path.GetExtension(loadHallDialog.FileName).ToLowerInvariant();
+
+                    switch (fileExtension)
+                    {
+                        case ".txt":
+                            apiUrl = "https://localhost:44307/api/import/txt";
+                            break;
+                        case ".xls":
+                        case ".xlsx":
+                            apiUrl = "https://localhost:44307/api/import/excel";
+                            break;
+                        case ".json":
+                            apiUrl = "https://localhost:44307/api/import/json";
+                            break;
+                        case ".xml":
+                            apiUrl = "https://localhost:44307/api/import/xml";
+                            break;
+                        default:
+                            MessageBox.Show("File extension not supported: " + fileExtension);
+                            return;
+                    }
+
+                    await LoadHallFile(apiUrl, loadHallDialog.FileName);
                 }
             }
         }
@@ -200,7 +247,7 @@ namespace CURIOsity
                                     aperture.NominalValue = new Xbim.Ifc4.MeasureResource.IfcLengthMeasure(leftPanelApertures[i]);
                                 }
                                 
-                                //bimLeftPanels: IEnumerable, leftPanelMapping: dictionary<string, int> where key is the CURIO ID of the left wall panel and value is the index of the corresponding panel in bimLeftPanels
+                                //bimLeftPanels: IEnumerable, leftPanelMapping: dictionary<string, int> where key is the hall ID of the left wall panel and value is the index of the corresponding panel in bimLeftPanels
                                 //to be used if the model actually has stagecraft equipment in it: in that case, we must use a dictionary for its information and in this case we wanna use dictionaries for all of the data we import from TXT
                                 foreach (var corr in leftPanelMapping)
                                 {
@@ -241,7 +288,7 @@ namespace CURIOsity
                                     aperture.NominalValue = new Xbim.Ifc4.MeasureResource.IfcLengthMeasure(rightPanelApertures[i]);
                                 }
 
-                                //bimRightPanels: IEnumerable, rightPanelMapping: dictionary<string, int> where key is the CURIO ID of the right wall panel and value is the index of the corresponding panel in bimRightPanels
+                                //bimRightPanels: IEnumerable, rightPanelMapping: dictionary<string, int> where key is the hall ID of the right wall panel and value is the index of the corresponding panel in bimRightPanels
                                 //to be used if the model actually has stagecraft equipment in it: in that case, we must use a dictionary for its information and in this case we wanna use dictionaries for all of the data we import from TXT
                                 foreach (var corr in rightPanelMapping)
                                 {
@@ -266,7 +313,7 @@ namespace CURIOsity
                             {
                                 //... extract stagecraft equipment information into IEnumerable bimStagecraftEquipment like we already did for the loadBimButton...
 
-                                //bimStagecraftEquipment: IEnumerable, stagecraftEquipmentMapping: dictionary<string, int> where key is the CURIO ID of the stagecraft equipment piece and value is the index of the corresponding piece in bimStagecraftEquipment
+                                //bimStagecraftEquipment: IEnumerable, stagecraftEquipmentMapping: dictionary<string, int> where key is the hall ID of the stagecraft equipment piece and value is the index of the corresponding piece in bimStagecraftEquipment
                                 foreach (var corr in stagecraftEquipmentMapping)
                                 {
                                     var piece = bimStagecraftEquipment.ElementAt(corr.Value);
@@ -319,173 +366,175 @@ namespace CURIOsity
         }
 
 
-        // event method to load text file
-        private void LoadTextFile(string filePath)
+        // method to import hall data through API
+        private async Task LoadHallFile(string apiUrl, string filePath)
         {
-            try
+            using (var client = new HttpClient())
+            using (var form = new MultipartFormDataContent())
+            using (var fileStream = File.OpenRead(filePath))
             {
+                form.Add(new StreamContent(fileStream), "file", Path.GetFileName(filePath));
+                var response = await client.PostAsync(apiUrl, form);
+
+                if (!response.IsSuccessStatusCode)
+                {
+                    // read and show error message coming from API
+                    var errorMessage = await response.Content.ReadAsStringAsync();
+                    MessageBox.Show("Error importing hall data:\n" + errorMessage, "Import error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    return;
+                }
+
+                var json = await response.Content.ReadAsStringAsync();
+                var data = JsonConvert.DeserializeObject<CURIOsity_API.Models.CuriosityDataModel>(json);
+
                 // save current scroll positions
-                int curioStagecraftTopRowIndex = curioStagecraftDataGridView.FirstDisplayedScrollingRowIndex;
-                int curioLeftPanelsTopRowIndex = curioLeftPanelsDataGridView.FirstDisplayedScrollingRowIndex;
-                int curioRightPanelsTopRowIndex = curioRightPanelsDataGridView.FirstDisplayedScrollingRowIndex;
+                int hallStagecraftTopRowIndex = hallStagecraftDataGridView.FirstDisplayedScrollingRowIndex;
+                int hallLeftPanelsTopRowIndex = hallLeftPanelsDataGridView.FirstDisplayedScrollingRowIndex;
+                int hallRightPanelsTopRowIndex = hallRightPanelsDataGridView.FirstDisplayedScrollingRowIndex;
 
                 // save current cell selection
-                selectedCells[curioStagecraftDataGridView] = GetSelectedCells(curioStagecraftDataGridView);
-                selectedCells[curioLeftPanelsDataGridView] = GetSelectedCells(curioLeftPanelsDataGridView);
-                selectedCells[curioRightPanelsDataGridView] = GetSelectedCells(curioRightPanelsDataGridView);
+                selectedCells[hallStagecraftDataGridView] = GetSelectedCells(hallStagecraftDataGridView);
+                selectedCells[hallLeftPanelsDataGridView] = GetSelectedCells(hallLeftPanelsDataGridView);
+                selectedCells[hallRightPanelsDataGridView] = GetSelectedCells(hallRightPanelsDataGridView);
 
                 // save current data sorting
-                DataGridViewColumn curioStagecraftSortedColumn = curioStagecraftDataGridView.SortedColumn;
-                ListSortDirection? curioStagecraftSortDirection = null;
-                if (curioStagecraftSortedColumn != null)
+                DataGridViewColumn hallStagecraftSortedColumn = hallStagecraftDataGridView.SortedColumn;
+                ListSortDirection? hallStagecraftSortDirection = null;
+                if (hallStagecraftSortedColumn != null)
                 {
-                    curioStagecraftSortDirection = curioStagecraftDataGridView.SortOrder == SortOrder.Descending
+                    hallStagecraftSortDirection = hallStagecraftDataGridView.SortOrder == SortOrder.Descending
                         ? ListSortDirection.Descending
                         : ListSortDirection.Ascending;
                 }
 
-                DataGridViewColumn curioLeftPanelsSortedColumn = curioLeftPanelsDataGridView.SortedColumn;
-                ListSortDirection? curioLeftPanelsSortDirection = null;
-                if (curioLeftPanelsSortedColumn != null)
+                DataGridViewColumn hallLeftPanelsSortedColumn = hallLeftPanelsDataGridView.SortedColumn;
+                ListSortDirection? hallLeftPanelsSortDirection = null;
+                if (hallLeftPanelsSortedColumn != null)
                 {
-                    curioLeftPanelsSortDirection = curioLeftPanelsDataGridView.SortOrder == SortOrder.Descending
+                    hallLeftPanelsSortDirection = hallLeftPanelsDataGridView.SortOrder == SortOrder.Descending
                         ? ListSortDirection.Descending
                         : ListSortDirection.Ascending;
                 }
 
-                DataGridViewColumn curioRightPanelsSortedColumn = curioRightPanelsDataGridView.SortedColumn;
-                ListSortDirection? curioRightPanelsSortDirection = null;
-                if (curioRightPanelsSortedColumn != null)
+                DataGridViewColumn hallRightPanelsSortedColumn = hallRightPanelsDataGridView.SortedColumn;
+                ListSortDirection? hallRightPanelsSortDirection = null;
+                if (hallRightPanelsSortedColumn != null)
                 {
-                    curioRightPanelsSortDirection = curioRightPanelsDataGridView.SortOrder == SortOrder.Descending
+                    hallRightPanelsSortDirection = hallRightPanelsDataGridView.SortOrder == SortOrder.Descending
                         ? ListSortDirection.Descending
                         : ListSortDirection.Ascending;
                 }
 
                 // save current cell background colors
                 Dictionary<string, Color> stagecraftCellColors = new Dictionary<string, Color>();
-                foreach (DataGridViewRow row in curioStagecraftDataGridView.Rows)
+                foreach (DataGridViewRow row in hallStagecraftDataGridView.Rows)
                 {
                     string rowId = row.Cells[0].Value?.ToString();
                     stagecraftCellColors[rowId] = row.Cells[0].Style.BackColor;
                 }
 
                 Dictionary<string, Color> leftPanelsCellColors = new Dictionary<string, Color>();
-                foreach (DataGridViewRow row in curioLeftPanelsDataGridView.Rows)
+                foreach (DataGridViewRow row in hallLeftPanelsDataGridView.Rows)
                 {
                     string rowId = row.Cells[0].Value?.ToString();
                     leftPanelsCellColors[rowId] = row.Cells[0].Style.BackColor;
                 }
 
                 Dictionary<string, Color> rightPanelsCellColors = new Dictionary<string, Color>();
-                foreach (DataGridViewRow row in curioRightPanelsDataGridView.Rows)
+                foreach (DataGridViewRow row in hallRightPanelsDataGridView.Rows)
                 {
                     string rowId = row.Cells[0].Value?.ToString();
                     rightPanelsCellColors[rowId] = row.Cells[0].Style.BackColor;
                 }
 
-                // empty the class-level dictionaries
-                curioStagecraftEquipmentPositions.Clear();
-                curioLeftPanelApertures.Clear();
-                curioRightPanelApertures.Clear();
+                // empty and refill the class-level dictionaries
+                hallStagecraftEquipmentPositions.Clear();
+                hallStagecraftEquipmentPositions = data.StagecraftEquipmentPositions;
 
-                // read the text file and fill the class-level dictionaries
-                foreach (var line in File.ReadLines(filePath).Skip(3).Take(13))
-                {
-                    curioStagecraftEquipmentPositions.Add(line.Substring(0, 6), int.Parse(line.Substring(9, 5)));
-                }
+                hallLeftPanelApertures.Clear();
+                hallLeftPanelApertures = data.LeftPanelApertures;
 
-                foreach (var line in File.ReadLines(filePath).Skip(17).Take(26))
-                {
-                    curioLeftPanelApertures.Add(line.Substring(0, 6), int.Parse(line.Substring(9, 5)));
-                }
-
-                foreach (var line in File.ReadLines(filePath).Skip(44).Take(26))
-                {
-                    curioRightPanelApertures.Add(line.Substring(0, 6), int.Parse(line.Substring(9, 5)));
-                }
-
+                hallRightPanelApertures.Clear();
+                hallRightPanelApertures = data.RightPanelApertures;
+                
                 // empty and refill corresponding DataGridViews
-                curioStagecraftDataGridView.Rows.Clear();
-                foreach (var pair in curioStagecraftEquipmentPositions)
+                hallStagecraftDataGridView.Rows.Clear();
+                foreach (var pair in hallStagecraftEquipmentPositions)
                 {
-                    string[] row = {pair.Key, $"{pair.Value} mm"};
-                    curioStagecraftDataGridView.Rows.Add(row);
+                    hallStagecraftDataGridView.Rows.Add(pair.Key, $"{pair.Value} mm");
                 }
 
-                curioLeftPanelsDataGridView.Rows.Clear();
-                foreach (var pair in curioLeftPanelApertures)
+                hallLeftPanelsDataGridView.Rows.Clear();
+                foreach (var pair in hallLeftPanelApertures)
                 {
-                    string[] row = {pair.Key, $"{pair.Value} mm"};
-                    curioLeftPanelsDataGridView.Rows.Add(row);
+                    hallLeftPanelsDataGridView.Rows.Add(pair.Key, $"{pair.Value} mm");
                 }
 
-                curioRightPanelsDataGridView.Rows.Clear();
-                foreach (var pair in curioRightPanelApertures)
+                hallRightPanelsDataGridView.Rows.Clear();
+                foreach (var pair in hallRightPanelApertures)
                 {
-                    string[] row = {pair.Key, $"{pair.Value} mm"};
-                    curioRightPanelsDataGridView.Rows.Add(row);
+                    hallRightPanelsDataGridView.Rows.Add(pair.Key, $"{pair.Value} mm");
                 }
 
                 // restore previous scroll positions
-                if (curioStagecraftTopRowIndex >= 0)
+                if (hallStagecraftTopRowIndex >= 0)
                 {
-                    curioStagecraftDataGridView.FirstDisplayedScrollingRowIndex = curioStagecraftTopRowIndex;
+                    hallStagecraftDataGridView.FirstDisplayedScrollingRowIndex = hallStagecraftTopRowIndex;
                 }
 
-                if (curioLeftPanelsTopRowIndex >= 0)
+                if (hallLeftPanelsTopRowIndex >= 0)
                 {
-                    curioLeftPanelsDataGridView.FirstDisplayedScrollingRowIndex = curioLeftPanelsTopRowIndex;
+                    hallLeftPanelsDataGridView.FirstDisplayedScrollingRowIndex = hallLeftPanelsTopRowIndex;
                 }
 
-                if (curioRightPanelsTopRowIndex >= 0)
+                if (hallRightPanelsTopRowIndex >= 0)
                 {
-                    curioRightPanelsDataGridView.FirstDisplayedScrollingRowIndex = curioRightPanelsTopRowIndex;
+                    hallRightPanelsDataGridView.FirstDisplayedScrollingRowIndex = hallRightPanelsTopRowIndex;
                 }
 
                 // restore previous cell selection
-                if (selectedCells.TryGetValue(curioStagecraftDataGridView, out var selection))
+                if (selectedCells.TryGetValue(hallStagecraftDataGridView, out var selection))
                 {
-                    RestoreSelectedCells(curioStagecraftDataGridView, selection);
-                }
-                
-                if (selectedCells.TryGetValue(curioLeftPanelsDataGridView, out selection))
-                {
-                    RestoreSelectedCells(curioLeftPanelsDataGridView, selection);
+                    RestoreSelectedCells(hallStagecraftDataGridView, selection);
                 }
 
-                if (selectedCells.TryGetValue(curioRightPanelsDataGridView, out selection))
+                if (selectedCells.TryGetValue(hallLeftPanelsDataGridView, out selection))
                 {
-                    RestoreSelectedCells(curioRightPanelsDataGridView, selection);
+                    RestoreSelectedCells(hallLeftPanelsDataGridView, selection);
+                }
+
+                if (selectedCells.TryGetValue(hallRightPanelsDataGridView, out selection))
+                {
+                    RestoreSelectedCells(hallRightPanelsDataGridView, selection);
                 }
 
                 // restore previous data sorting
-                if (curioStagecraftSortedColumn != null && curioStagecraftSortDirection.HasValue)
+                if (hallStagecraftSortedColumn != null && hallStagecraftSortDirection.HasValue)
                 {
-                    curioStagecraftDataGridView.Sort(curioStagecraftSortedColumn, curioStagecraftSortDirection.Value);
+                    hallStagecraftDataGridView.Sort(hallStagecraftSortedColumn, hallStagecraftSortDirection.Value);
                 }
-                if (curioLeftPanelsSortedColumn != null && curioLeftPanelsSortDirection.HasValue)
+                if (hallLeftPanelsSortedColumn != null && hallLeftPanelsSortDirection.HasValue)
                 {
-                    curioLeftPanelsDataGridView.Sort(curioLeftPanelsSortedColumn, curioLeftPanelsSortDirection.Value);
+                    hallLeftPanelsDataGridView.Sort(hallLeftPanelsSortedColumn, hallLeftPanelsSortDirection.Value);
                 }
-                if (curioRightPanelsSortedColumn != null && curioRightPanelsSortDirection.HasValue)
+                if (hallRightPanelsSortedColumn != null && hallRightPanelsSortDirection.HasValue)
                 {
-                    curioRightPanelsDataGridView.Sort(curioRightPanelsSortedColumn, curioRightPanelsSortDirection.Value);
+                    hallRightPanelsDataGridView.Sort(hallRightPanelsSortedColumn, hallRightPanelsSortDirection.Value);
                 }
 
-                // if a BIM file has already been loaded, highlight discrepancies between CURIO and BIM data
+                // if a BIM file has already been loaded, highlight discrepancies between hall and BIM data
                 if (bimStagecraftDataGridView.Rows.Count > 0)
                 {
                     foreach (var rel in stagecraftEquipmentMapping)
                     {
-                        DataGridViewRow curioRow = curioStagecraftDataGridView.Rows
+                        DataGridViewRow hallRow = hallStagecraftDataGridView.Rows
                             .Cast<DataGridViewRow>()
                             .FirstOrDefault(r => r.Cells[0].Value != null && r.Cells[0].Value.ToString() == rel.Key);
                         DataGridViewRow bimRow = bimStagecraftDataGridView.Rows
                             .Cast<DataGridViewRow>()
                             .FirstOrDefault(r => r.Cells[0].Value != null && r.Cells[0].Value.ToString() == rel.Value);
 
-                        if (curioStagecraftEquipmentPositions[rel.Key] != bimStagecraftEquipmentPositions[rel.Value])
+                        if (hallStagecraftEquipmentPositions[rel.Key] != bimStagecraftEquipmentPositions[rel.Value])
                         {
                             // discrepancy found
                             if (stagecraftCellColors[rel.Key] == Color.Empty)
@@ -507,7 +556,7 @@ namespace CURIOsity
                         }
 
                         // apply color to the row couple
-                        curioRow.DefaultCellStyle.BackColor = stagecraftCellColors[rel.Key];
+                        hallRow.DefaultCellStyle.BackColor = stagecraftCellColors[rel.Key];
                         bimRow.DefaultCellStyle.BackColor = stagecraftCellColors[rel.Key];
                     }
                 }
@@ -516,14 +565,14 @@ namespace CURIOsity
                 {
                     foreach (var rel in leftPanelMapping)
                     {
-                        DataGridViewRow curioRow = curioLeftPanelsDataGridView.Rows
+                        DataGridViewRow hallRow = hallLeftPanelsDataGridView.Rows
                             .Cast<DataGridViewRow>()
                             .FirstOrDefault(r => r.Cells[0].Value != null && r.Cells[0].Value.ToString() == rel.Key);
                         DataGridViewRow bimRow = bimLeftPanelsDataGridView.Rows
                             .Cast<DataGridViewRow>()
                             .FirstOrDefault(r => r.Cells[0].Value != null && r.Cells[0].Value.ToString() == rel.Value);
 
-                        if (curioLeftPanelApertures[rel.Key] != bimLeftPanelApertures[rel.Value])
+                        if (hallLeftPanelApertures[rel.Key] != bimLeftPanelApertures[rel.Value])
                         {
                             // discrepancy found
                             if (leftPanelsCellColors[rel.Key] == Color.Empty)
@@ -545,7 +594,7 @@ namespace CURIOsity
                         }
 
                         // apply color to the row couple
-                        curioRow.DefaultCellStyle.BackColor = leftPanelsCellColors[rel.Key];
+                        hallRow.DefaultCellStyle.BackColor = leftPanelsCellColors[rel.Key];
                         bimRow.DefaultCellStyle.BackColor = leftPanelsCellColors[rel.Key];
                     }
                 }
@@ -554,14 +603,14 @@ namespace CURIOsity
                 {
                     foreach (var rel in rightPanelMapping)
                     {
-                        DataGridViewRow curioRow = curioRightPanelsDataGridView.Rows
+                        DataGridViewRow hallRow = hallRightPanelsDataGridView.Rows
                             .Cast<DataGridViewRow>()
                             .FirstOrDefault(r => r.Cells[0].Value != null && r.Cells[0].Value.ToString() == rel.Key);
                         DataGridViewRow bimRow = bimRightPanelsDataGridView.Rows
                             .Cast<DataGridViewRow>()
                             .FirstOrDefault(r => r.Cells[0].Value != null && r.Cells[0].Value.ToString() == rel.Value);
 
-                        if (curioRightPanelApertures[rel.Key] != bimRightPanelApertures[rel.Value])
+                        if (hallRightPanelApertures[rel.Key] != bimRightPanelApertures[rel.Value])
                         {
                             // discrepancy found
                             if (rightPanelsCellColors[rel.Key] == Color.Empty)
@@ -583,18 +632,14 @@ namespace CURIOsity
                         }
 
                         // apply color to the row couple
-                        curioRow.DefaultCellStyle.BackColor = rightPanelsCellColors[rel.Key];
+                        hallRow.DefaultCellStyle.BackColor = rightPanelsCellColors[rel.Key];
                         bimRow.DefaultCellStyle.BackColor = rightPanelsCellColors[rel.Key];
                     }
                 }
             }
-            catch (Exception error)
-            {
-                MessageBox.Show("Error while reading text file: " + error.Message + "\n" + "Please make sure the text file is formatted as expected (described in the readme file)");
-            }
         }
 
-        // event method to load BIM file
+        // method to import BIM data
         private void LoadBimFile(string filePath)
         {
             try
@@ -804,19 +849,19 @@ namespace CURIOsity
                     bimRightPanelsDataGridView.Sort(bimRightPanelsSortedColumn, bimRightPanelsSortDirection.Value);
                 }
 
-                // if a text file has already been loaded, highlight discrepancies between CURIO and BIM data
-                if (curioStagecraftDataGridView.Rows.Count > 0)
+                // if a hall file has already been loaded, highlight discrepancies between hall and BIM data
+                if (hallStagecraftDataGridView.Rows.Count > 0)
                 {
                     foreach (var rel in stagecraftEquipmentMapping)
                     {
-                        DataGridViewRow curioRow = curioStagecraftDataGridView.Rows
+                        DataGridViewRow hallRow = hallStagecraftDataGridView.Rows
                             .Cast<DataGridViewRow>()
                             .FirstOrDefault(r => r.Cells[0].Value != null && r.Cells[0].Value.ToString() == rel.Key);
                         DataGridViewRow bimRow = bimStagecraftDataGridView.Rows
                             .Cast<DataGridViewRow>()
                             .FirstOrDefault(r => r.Cells[0].Value != null && r.Cells[0].Value.ToString() == rel.Value);
 
-                        if (curioStagecraftEquipmentPositions[rel.Key] != bimStagecraftEquipmentPositions[rel.Value])
+                        if (hallStagecraftEquipmentPositions[rel.Key] != bimStagecraftEquipmentPositions[rel.Value])
                         {
                             // discrepancy found
                             if (stagecraftCellColors[rel.Key] == Color.Empty)
@@ -838,23 +883,23 @@ namespace CURIOsity
                         }
 
                         // apply color to the row couple
-                        curioRow.DefaultCellStyle.BackColor = stagecraftCellColors[rel.Key];
+                        hallRow.DefaultCellStyle.BackColor = stagecraftCellColors[rel.Key];
                         bimRow.DefaultCellStyle.BackColor = stagecraftCellColors[rel.Key];
                     }
                 }
 
-                if (curioLeftPanelsDataGridView.Rows.Count > 0)
+                if (hallLeftPanelsDataGridView.Rows.Count > 0)
                 {
                     foreach (var rel in leftPanelMapping)
                     {
-                        DataGridViewRow curioRow = curioLeftPanelsDataGridView.Rows
+                        DataGridViewRow hallRow = hallLeftPanelsDataGridView.Rows
                             .Cast<DataGridViewRow>()
                             .FirstOrDefault(r => r.Cells[0].Value != null && r.Cells[0].Value.ToString() == rel.Key);
                         DataGridViewRow bimRow = bimLeftPanelsDataGridView.Rows
                             .Cast<DataGridViewRow>()
                             .FirstOrDefault(r => r.Cells[0].Value != null && r.Cells[0].Value.ToString() == rel.Value);
 
-                        if (curioLeftPanelApertures[rel.Key] != bimLeftPanelApertures[rel.Value])
+                        if (hallLeftPanelApertures[rel.Key] != bimLeftPanelApertures[rel.Value])
                         {
                             // discrepancy found
                             if (leftPanelsCellColors[rel.Key] == Color.Empty)
@@ -876,23 +921,23 @@ namespace CURIOsity
                         }
 
                         // apply color to the row couple
-                        curioRow.DefaultCellStyle.BackColor = leftPanelsCellColors[rel.Key];
+                        hallRow.DefaultCellStyle.BackColor = leftPanelsCellColors[rel.Key];
                         bimRow.DefaultCellStyle.BackColor = leftPanelsCellColors[rel.Key];
                     }
                 }
 
-                if (curioRightPanelsDataGridView.Rows.Count > 0)
+                if (hallRightPanelsDataGridView.Rows.Count > 0)
                 {
                     foreach (var rel in rightPanelMapping)
                     {
-                        DataGridViewRow curioRow = curioRightPanelsDataGridView.Rows
+                        DataGridViewRow hallRow = hallRightPanelsDataGridView.Rows
                             .Cast<DataGridViewRow>()
                             .FirstOrDefault(r => r.Cells[0].Value != null && r.Cells[0].Value.ToString() == rel.Key);
                         DataGridViewRow bimRow = bimRightPanelsDataGridView.Rows
                             .Cast<DataGridViewRow>()
                             .FirstOrDefault(r => r.Cells[0].Value != null && r.Cells[0].Value.ToString() == rel.Value);
 
-                        if (curioRightPanelApertures[rel.Key] != bimRightPanelApertures[rel.Value])
+                        if (hallRightPanelApertures[rel.Key] != bimRightPanelApertures[rel.Value])
                         {
                             // discrepancy found
                             if (rightPanelsCellColors[rel.Key] == Color.Empty)
@@ -914,7 +959,7 @@ namespace CURIOsity
                         }
 
                         // apply color to the row couple
-                        curioRow.DefaultCellStyle.BackColor = rightPanelsCellColors[rel.Key];
+                        hallRow.DefaultCellStyle.BackColor = rightPanelsCellColors[rel.Key];
                         bimRow.DefaultCellStyle.BackColor = rightPanelsCellColors[rel.Key];
                     }
                 }
@@ -968,11 +1013,11 @@ namespace CURIOsity
             {
                 var iniFile = new IniFile(iniPath);
 
-                // text file check parameters
-                textFileCheckDirectory = iniFile.Read("TextFileCheck", "Directory");
-                textFileCheckName = iniFile.Read("TextFileCheck", "FileName");
-                int.TryParse(iniFile.Read("TextFileCheck", "Interval"), out textFileCheckInterval);
-                bool.TryParse(iniFile.Read("TextFileCheck", "Active"), out textFileCheckActive);
+                // hall file check parameters
+                hallFileCheckDirectory = iniFile.Read("HallFileCheck", "Directory");
+                hallFileCheckName = iniFile.Read("HallFileCheck", "FileName");
+                int.TryParse(iniFile.Read("HallFileCheck", "Interval"), out hallFileCheckInterval);
+                bool.TryParse(iniFile.Read("HallFileCheck", "Active"), out hallFileCheckActive);
 
                 // BIM file check parameters
                 bimFileCheckDirectory = iniFile.Read("BimFileCheck", "Directory");
@@ -984,7 +1029,7 @@ namespace CURIOsity
             // initialize timers
             InitTimers();
 
-            // hard-coded correspondences between CURIO IDs and BIM model element names
+            // hard-coded correspondences between hall IDs and BIM model element names
             stagecraftEquipmentMapping.Add("TM.001", "Truss Motor 1"); // hypothetical BIM element name
             stagecraftEquipmentMapping.Add("TM.002", "Truss Motor 2"); // hypothetical BIM element name
             stagecraftEquipmentMapping.Add("TM.003", "Truss Motor 3"); // hypothetical BIM element name
@@ -1073,54 +1118,54 @@ namespace CURIOsity
             // compute dynamically DataGridView height to fill the available space vertically
             int topMargin = 16;
             int labelHeight = 20;
-            int curioGroupHeight = groupTitleHeight + titleSpacing + labelHeight + labelSpacing;
+            int hallGroupHeight = groupTitleHeight + titleSpacing + labelHeight + labelSpacing;
             int bimGroupHeight = groupTitleHeight + titleSpacing + labelHeight + labelSpacing;
             int separatorMargin = groupSpacing / 2 + separatorHeight + 8;
-            int buttonHeight = loadTextButton.Height;
+            int buttonHeight = loadHallButton.Height;
             int buttonBottomMargin = 48;
-            int totalDataGridViewHeight = this.ClientSize.Height - topMargin - curioGroupHeight - bimGroupHeight - separatorMargin - buttonHeight - buttonBottomMargin;
+            int totalDataGridViewHeight = this.ClientSize.Height - topMargin - hallGroupHeight - bimGroupHeight - separatorMargin - buttonHeight - buttonBottomMargin;
 
             // Each group takes half of the available space
             int DataGridViewHeight = totalDataGridViewHeight / 2;
 
             // Starting positions for data groups
             int startX = 20;
-            int curioStartY = topMargin;
-            int curioLabelY = curioStartY + groupTitleHeight + titleSpacing;
-            int curioDataGridViewY = curioLabelY + labelHeight + labelSpacing;
+            int hallStartY = topMargin;
+            int hallLabelY = hallStartY + groupTitleHeight + titleSpacing;
+            int hallDataGridViewY = hallLabelY + labelHeight + labelSpacing;
 
-            int separatorY = curioDataGridViewY + DataGridViewHeight + groupSpacing / 2;
+            int separatorY = hallDataGridViewY + DataGridViewHeight + groupSpacing / 2;
             int bimStartY = separatorY + separatorHeight + 8;
             int bimLabelY = bimStartY + groupTitleHeight + titleSpacing;
             int bimDataGridViewY = bimLabelY + labelHeight + labelSpacing;
 
-            // CURIO group title
-            curioDataGroupLabel.Left = (this.ClientSize.Width - curioDataGroupLabel.Width) / 2;
-            curioDataGroupLabel.Top = curioStartY;
+            // hall group title
+            hallDataGroupLabel.Left = (this.ClientSize.Width - hallDataGroupLabel.Width) / 2;
+            hallDataGroupLabel.Top = hallStartY;
 
-            // CURIO DataGridView labels
-            curioStagecraftDataGridViewLabel.Left = startX;
-            curioStagecraftDataGridViewLabel.Top = curioLabelY;
-            curioLeftPanelsDataGridViewLabel.Left = startX + DataGridViewWidth + DataGridViewSpacing;
-            curioLeftPanelsDataGridViewLabel.Top = curioLabelY;
-            curioRightPanelsDataGridViewLabel.Left = startX + (DataGridViewWidth + DataGridViewSpacing) * 2;
-            curioRightPanelsDataGridViewLabel.Top = curioLabelY;
+            // hall DataGridView labels
+            hallStagecraftDataGridViewLabel.Left = startX;
+            hallStagecraftDataGridViewLabel.Top = hallLabelY;
+            hallLeftPanelsDataGridViewLabel.Left = startX + DataGridViewWidth + DataGridViewSpacing;
+            hallLeftPanelsDataGridViewLabel.Top = hallLabelY;
+            hallRightPanelsDataGridViewLabel.Left = startX + (DataGridViewWidth + DataGridViewSpacing) * 2;
+            hallRightPanelsDataGridViewLabel.Top = hallLabelY;
 
-            // CURIO DataGridViews
-            curioStagecraftDataGridView.Left = startX;
-            curioStagecraftDataGridView.Top = curioDataGridViewY;
-            curioStagecraftDataGridView.Width = DataGridViewWidth;
-            curioStagecraftDataGridView.Height = DataGridViewHeight;
+            // hall DataGridViews
+            hallStagecraftDataGridView.Left = startX;
+            hallStagecraftDataGridView.Top = hallDataGridViewY;
+            hallStagecraftDataGridView.Width = DataGridViewWidth;
+            hallStagecraftDataGridView.Height = DataGridViewHeight;
 
-            curioLeftPanelsDataGridView.Left = curioLeftPanelsDataGridViewLabel.Left;
-            curioLeftPanelsDataGridView.Top = curioDataGridViewY;
-            curioLeftPanelsDataGridView.Width = DataGridViewWidth;
-            curioLeftPanelsDataGridView.Height = DataGridViewHeight;
+            hallLeftPanelsDataGridView.Left = hallLeftPanelsDataGridViewLabel.Left;
+            hallLeftPanelsDataGridView.Top = hallDataGridViewY;
+            hallLeftPanelsDataGridView.Width = DataGridViewWidth;
+            hallLeftPanelsDataGridView.Height = DataGridViewHeight;
 
-            curioRightPanelsDataGridView.Left = curioRightPanelsDataGridViewLabel.Left;
-            curioRightPanelsDataGridView.Top = curioDataGridViewY;
-            curioRightPanelsDataGridView.Width = DataGridViewWidth;
-            curioRightPanelsDataGridView.Height = DataGridViewHeight;
+            hallRightPanelsDataGridView.Left = hallRightPanelsDataGridViewLabel.Left;
+            hallRightPanelsDataGridView.Top = hallDataGridViewY;
+            hallRightPanelsDataGridView.Width = DataGridViewWidth;
+            hallRightPanelsDataGridView.Height = DataGridViewHeight;
 
             // place and scale the horizontal separating line dynamically
             groupSeparator.Left = startX;
@@ -1179,24 +1224,24 @@ namespace CURIOsity
                 }
             }
 
-            FitColumnsToWidth(curioStagecraftDataGridView);
-            FitColumnsToWidth(curioLeftPanelsDataGridView);
-            FitColumnsToWidth(curioRightPanelsDataGridView);
+            FitColumnsToWidth(hallStagecraftDataGridView);
+            FitColumnsToWidth(hallLeftPanelsDataGridView);
+            FitColumnsToWidth(hallRightPanelsDataGridView);
             FitColumnsToWidth(bimStagecraftDataGridView);
             FitColumnsToWidth(bimLeftPanelsDataGridView);
             FitColumnsToWidth(bimRightPanelsDataGridView);
 
 
-            // horizontally centering buttons "Load text file", "Load BIM file" and "Update BIM file" and keeping them one beside the other at the bottom of the form
+            // horizontally centering buttons "Load hall file", "Load BIM file" and "Update BIM file" and keeping them one beside the other at the bottom of the form
             int buttonSpacing = 16; // distance between buttons
-            int buttonsTotalWidth = loadTextButton.Width + buttonSpacing + loadBimButton.Width + buttonSpacing + updateBimButton.Width;
+            int buttonsTotalWidth = loadHallButton.Width + buttonSpacing + loadBimButton.Width + buttonSpacing + updateBimButton.Width;
             int buttonsStartX = (this.ClientSize.Width - buttonsTotalWidth) / 2;
-            int buttonsY = this.ClientSize.Height - loadTextButton.Height - 24; // 24 pixels from the bottom of the form
+            int buttonsY = this.ClientSize.Height - loadHallButton.Height - 24; // 24 pixels from the bottom of the form
 
-            loadTextButton.Left = buttonsStartX;
-            loadTextButton.Top = buttonsY;
+            loadHallButton.Left = buttonsStartX;
+            loadHallButton.Top = buttonsY;
             
-            loadBimButton.Left = buttonsStartX + loadTextButton.Width + buttonSpacing;
+            loadBimButton.Left = buttonsStartX + loadHallButton.Width + buttonSpacing;
             loadBimButton.Top = buttonsY;
 
             updateBimButton.Left = loadBimButton.Left + loadBimButton.Width + buttonSpacing;

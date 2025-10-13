@@ -6,20 +6,20 @@ namespace CURIOsity
     {
         // variable declaration
 
-        // CURIO data group title
-        private System.Windows.Forms.Label curioDataGroupLabel;
+        // hall data group title
+        private System.Windows.Forms.Label hallDataGroupLabel;
 
-        // CURIO DataGridView titles
-        private System.Windows.Forms.Label curioStagecraftDataGridViewLabel;
-        private System.Windows.Forms.Label curioLeftPanelsDataGridViewLabel;
-        private System.Windows.Forms.Label curioRightPanelsDataGridViewLabel;
+        // hall DataGridView titles
+        private System.Windows.Forms.Label hallStagecraftDataGridViewLabel;
+        private System.Windows.Forms.Label hallLeftPanelsDataGridViewLabel;
+        private System.Windows.Forms.Label hallRightPanelsDataGridViewLabel;
 
-        // CURIO DataGridView for viewing stagecraft equipment positions and left/right panel array apertures coming from CURIO
-        private System.Windows.Forms.DataGridView curioStagecraftDataGridView;
-        private System.Windows.Forms.DataGridView curioLeftPanelsDataGridView;
-        private System.Windows.Forms.DataGridView curioRightPanelsDataGridView;
+        // hall DataGridView for viewing stagecraft equipment positions and left/right panel array apertures coming from the hall
+        private System.Windows.Forms.DataGridView hallStagecraftDataGridView;
+        private System.Windows.Forms.DataGridView hallLeftPanelsDataGridView;
+        private System.Windows.Forms.DataGridView hallRightPanelsDataGridView;
 
-        // Horizontal separator between CURIO and BIM model data groups
+        // Horizontal separator between hall and BIM model data groups
         private System.Windows.Forms.Label groupSeparator;
 
         // BIM model data group title
@@ -35,8 +35,8 @@ namespace CURIOsity
         private System.Windows.Forms.DataGridView bimLeftPanelsDataGridView;
         private System.Windows.Forms.DataGridView bimRightPanelsDataGridView;
 
-        // "Load text file" button
-        private System.Windows.Forms.Button loadTextButton;
+        // "Load hall file" button
+        private System.Windows.Forms.Button loadHallButton;
 
         // "Load BIM file" button
         private System.Windows.Forms.Button loadBimButton;
@@ -48,18 +48,18 @@ namespace CURIOsity
         {
             // element creation
 
-            // CURIO data group title creation
-            this.curioDataGroupLabel = new System.Windows.Forms.Label();
+            // hall data group title creation
+            this.hallDataGroupLabel = new System.Windows.Forms.Label();
 
-            // CURIO DataGridView titles creation
-            this.curioStagecraftDataGridViewLabel = new System.Windows.Forms.Label();
-            this.curioLeftPanelsDataGridViewLabel = new System.Windows.Forms.Label();
-            this.curioRightPanelsDataGridViewLabel = new System.Windows.Forms.Label();
+            // hall DataGridView titles creation
+            this.hallStagecraftDataGridViewLabel = new System.Windows.Forms.Label();
+            this.hallLeftPanelsDataGridViewLabel = new System.Windows.Forms.Label();
+            this.hallRightPanelsDataGridViewLabel = new System.Windows.Forms.Label();
 
-            // CURIO DataGridView creation
-            this.curioStagecraftDataGridView = new System.Windows.Forms.DataGridView();
-            this.curioLeftPanelsDataGridView = new System.Windows.Forms.DataGridView();
-            this.curioRightPanelsDataGridView = new System.Windows.Forms.DataGridView();
+            // hall DataGridView creation
+            this.hallStagecraftDataGridView = new System.Windows.Forms.DataGridView();
+            this.hallLeftPanelsDataGridView = new System.Windows.Forms.DataGridView();
+            this.hallRightPanelsDataGridView = new System.Windows.Forms.DataGridView();
 
             // Horizontal separator creation
             this.groupSeparator = new System.Windows.Forms.Label();
@@ -77,8 +77,8 @@ namespace CURIOsity
             this.bimLeftPanelsDataGridView = new System.Windows.Forms.DataGridView();
             this.bimRightPanelsDataGridView = new System.Windows.Forms.DataGridView();
 
-            // "Load text file" button creation
-            this.loadTextButton = new System.Windows.Forms.Button();
+            // "Load hall file" button creation
+            this.loadHallButton = new System.Windows.Forms.Button();
 
             // "Load BIM file" button creation
             this.loadBimButton = new System.Windows.Forms.Button();
@@ -91,73 +91,73 @@ namespace CURIOsity
 
             // element initialization
 
-            // CURIO data group title initialization
-            this.curioDataGroupLabel.Size = new System.Drawing.Size(300, 30);
-            this.curioDataGroupLabel.Location = new System.Drawing.Point((this.ClientSize.Width - 300) / 2, 16);
-            this.curioDataGroupLabel.Text = "CURIO data";
-            this.curioDataGroupLabel.Font = new System.Drawing.Font("Microsoft Sans Serif", 14F, System.Drawing.FontStyle.Bold);
-            this.curioDataGroupLabel.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
-            this.curioDataGroupLabel.Anchor = System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left | System.Windows.Forms.AnchorStyles.Right;
+            // hall data group title initialization
+            this.hallDataGroupLabel.Size = new System.Drawing.Size(300, 30);
+            this.hallDataGroupLabel.Location = new System.Drawing.Point((this.ClientSize.Width - 300) / 2, 16);
+            this.hallDataGroupLabel.Text = "Hall data";
+            this.hallDataGroupLabel.Font = new System.Drawing.Font("Microsoft Sans Serif", 14F, System.Drawing.FontStyle.Bold);
+            this.hallDataGroupLabel.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
+            this.hallDataGroupLabel.Anchor = System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left | System.Windows.Forms.AnchorStyles.Right;
 
-            // title for CURIO stagecraft equipment DataGridView initialization
-            this.curioStagecraftDataGridViewLabel.Location = new System.Drawing.Point(12, 56);
-            this.curioStagecraftDataGridViewLabel.Size = new System.Drawing.Size(240, 20);
-            this.curioStagecraftDataGridViewLabel.Text = "Stagecraft equipment positions";
-            this.curioStagecraftDataGridViewLabel.Font = new System.Drawing.Font("Microsoft Sans Serif", 10F, System.Drawing.FontStyle.Bold);
+            // title for hall stagecraft equipment DataGridView initialization
+            this.hallStagecraftDataGridViewLabel.Location = new System.Drawing.Point(12, 56);
+            this.hallStagecraftDataGridViewLabel.Size = new System.Drawing.Size(240, 20);
+            this.hallStagecraftDataGridViewLabel.Text = "Stagecraft equipment positions";
+            this.hallStagecraftDataGridViewLabel.Font = new System.Drawing.Font("Microsoft Sans Serif", 10F, System.Drawing.FontStyle.Bold);
 
-            // title for CURIO left panel array DataGridView initialization
-            this.curioLeftPanelsDataGridViewLabel.Location = new System.Drawing.Point(270, 56);
-            this.curioLeftPanelsDataGridViewLabel.Size = new System.Drawing.Size(240, 20);
-            this.curioLeftPanelsDataGridViewLabel.Text = "Left panel array apertures";
-            this.curioLeftPanelsDataGridViewLabel.Font = new System.Drawing.Font("Microsoft Sans Serif", 10F, System.Drawing.FontStyle.Bold);
+            // title for hall left panel array DataGridView initialization
+            this.hallLeftPanelsDataGridViewLabel.Location = new System.Drawing.Point(270, 56);
+            this.hallLeftPanelsDataGridViewLabel.Size = new System.Drawing.Size(240, 20);
+            this.hallLeftPanelsDataGridViewLabel.Text = "Left panel array apertures";
+            this.hallLeftPanelsDataGridViewLabel.Font = new System.Drawing.Font("Microsoft Sans Serif", 10F, System.Drawing.FontStyle.Bold);
 
-            // title for CURIO right panel array DataGridView initialization
-            this.curioRightPanelsDataGridViewLabel.Location = new System.Drawing.Point(528, 56);
-            this.curioRightPanelsDataGridViewLabel.Size = new System.Drawing.Size(240, 20);
-            this.curioRightPanelsDataGridViewLabel.Text = "Right panel array apertures";
-            this.curioRightPanelsDataGridViewLabel.Font = new System.Drawing.Font("Microsoft Sans Serif", 10F, System.Drawing.FontStyle.Bold);
+            // title for hall right panel array DataGridView initialization
+            this.hallRightPanelsDataGridViewLabel.Location = new System.Drawing.Point(528, 56);
+            this.hallRightPanelsDataGridViewLabel.Size = new System.Drawing.Size(240, 20);
+            this.hallRightPanelsDataGridViewLabel.Text = "Right panel array apertures";
+            this.hallRightPanelsDataGridViewLabel.Font = new System.Drawing.Font("Microsoft Sans Serif", 10F, System.Drawing.FontStyle.Bold);
 
-            // CURIO DataGridView for stagecraft equipment initialization
-            this.curioStagecraftDataGridView.Location = new System.Drawing.Point(12, 76);
-            this.curioStagecraftDataGridView.Size = new System.Drawing.Size(240, 120);
-            this.curioStagecraftDataGridView.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
-            this.curioStagecraftDataGridView.AllowUserToAddRows = false;
-            this.curioStagecraftDataGridView.ColumnCount = 2;
-            this.curioStagecraftDataGridView.Columns[0].Name = "Name";
-            this.curioStagecraftDataGridView.Columns[0].Width = this.curioStagecraftDataGridView.Width / 2;
-            this.curioStagecraftDataGridView.Columns[1].Name = "Value";
-            this.curioStagecraftDataGridView.Columns[1].Width = this.curioStagecraftDataGridView.Width / 2;
-            this.curioStagecraftDataGridView.Name = "curioStagecraftDataGridView";
-            this.curioStagecraftDataGridView.MouseDown += new System.Windows.Forms.MouseEventHandler(this.DataGridView_ColumnHeaderMouseDown);
-            this.curioStagecraftDataGridView.Sorted += new System.EventHandler(this.DataGridView_Sorted);
+            // hall DataGridView for stagecraft equipment initialization
+            this.hallStagecraftDataGridView.Location = new System.Drawing.Point(12, 76);
+            this.hallStagecraftDataGridView.Size = new System.Drawing.Size(240, 120);
+            this.hallStagecraftDataGridView.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
+            this.hallStagecraftDataGridView.AllowUserToAddRows = false;
+            this.hallStagecraftDataGridView.ColumnCount = 2;
+            this.hallStagecraftDataGridView.Columns[0].Name = "Name";
+            this.hallStagecraftDataGridView.Columns[0].Width = this.hallStagecraftDataGridView.Width / 2;
+            this.hallStagecraftDataGridView.Columns[1].Name = "Value";
+            this.hallStagecraftDataGridView.Columns[1].Width = this.hallStagecraftDataGridView.Width / 2;
+            this.hallStagecraftDataGridView.Name = "hallStagecraftDataGridView";
+            this.hallStagecraftDataGridView.MouseDown += new System.Windows.Forms.MouseEventHandler(this.DataGridView_ColumnHeaderMouseDown);
+            this.hallStagecraftDataGridView.Sorted += new System.EventHandler(this.DataGridView_Sorted);
 
-            // CURIO DataGridView for left panel arrays initialization
-            this.curioLeftPanelsDataGridView.Location = new System.Drawing.Point(270, 76);
-            this.curioLeftPanelsDataGridView.Size = new System.Drawing.Size(240, 120);
-            this.curioLeftPanelsDataGridView.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
-            this.curioLeftPanelsDataGridView.AllowUserToAddRows = false;
-            this.curioLeftPanelsDataGridView.ColumnCount = 2;
-            this.curioLeftPanelsDataGridView.Columns[0].Name = "Name";
-            this.curioLeftPanelsDataGridView.Columns[0].Width = this.curioLeftPanelsDataGridView.Width / 2;
-            this.curioLeftPanelsDataGridView.Columns[1].Name = "Value";
-            this.curioLeftPanelsDataGridView.Columns[1].Width = this.curioLeftPanelsDataGridView.Width / 2;
-            this.curioLeftPanelsDataGridView.Name = "curioLeftPanelDataGridView";
-            this.curioLeftPanelsDataGridView.MouseDown += new System.Windows.Forms.MouseEventHandler(this.DataGridView_ColumnHeaderMouseDown);
-            this.curioLeftPanelsDataGridView.Sorted += new System.EventHandler(this.DataGridView_Sorted);
+            // hall DataGridView for left panel arrays initialization
+            this.hallLeftPanelsDataGridView.Location = new System.Drawing.Point(270, 76);
+            this.hallLeftPanelsDataGridView.Size = new System.Drawing.Size(240, 120);
+            this.hallLeftPanelsDataGridView.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
+            this.hallLeftPanelsDataGridView.AllowUserToAddRows = false;
+            this.hallLeftPanelsDataGridView.ColumnCount = 2;
+            this.hallLeftPanelsDataGridView.Columns[0].Name = "Name";
+            this.hallLeftPanelsDataGridView.Columns[0].Width = this.hallLeftPanelsDataGridView.Width / 2;
+            this.hallLeftPanelsDataGridView.Columns[1].Name = "Value";
+            this.hallLeftPanelsDataGridView.Columns[1].Width = this.hallLeftPanelsDataGridView.Width / 2;
+            this.hallLeftPanelsDataGridView.Name = "hallLeftPanelDataGridView";
+            this.hallLeftPanelsDataGridView.MouseDown += new System.Windows.Forms.MouseEventHandler(this.DataGridView_ColumnHeaderMouseDown);
+            this.hallLeftPanelsDataGridView.Sorted += new System.EventHandler(this.DataGridView_Sorted);
 
-            // CURIO DataGridView for right panel arrays initialization
-            this.curioRightPanelsDataGridView.Location = new System.Drawing.Point(528, 76);
-            this.curioRightPanelsDataGridView.Size = new System.Drawing.Size(240, 120);
-            this.curioRightPanelsDataGridView.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
-            this.curioRightPanelsDataGridView.AllowUserToAddRows = false;
-            this.curioRightPanelsDataGridView.ColumnCount = 2;
-            this.curioRightPanelsDataGridView.Columns[0].Name = "Name";
-            this.curioRightPanelsDataGridView.Columns[0].Width = this.curioRightPanelsDataGridView.Width / 2;
-            this.curioRightPanelsDataGridView.Columns[1].Name = "Value";
-            this.curioRightPanelsDataGridView.Columns[1].Width = this.curioRightPanelsDataGridView.Width / 2;
-            this.curioRightPanelsDataGridView.Name = "curioRightPanelsDataGridView";
-            this.curioRightPanelsDataGridView.MouseDown += new System.Windows.Forms.MouseEventHandler(this.DataGridView_ColumnHeaderMouseDown);
-            this.curioRightPanelsDataGridView.Sorted += new System.EventHandler(this.DataGridView_Sorted);
+            // hall DataGridView for right panel arrays initialization
+            this.hallRightPanelsDataGridView.Location = new System.Drawing.Point(528, 76);
+            this.hallRightPanelsDataGridView.Size = new System.Drawing.Size(240, 120);
+            this.hallRightPanelsDataGridView.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
+            this.hallRightPanelsDataGridView.AllowUserToAddRows = false;
+            this.hallRightPanelsDataGridView.ColumnCount = 2;
+            this.hallRightPanelsDataGridView.Columns[0].Name = "Name";
+            this.hallRightPanelsDataGridView.Columns[0].Width = this.hallRightPanelsDataGridView.Width / 2;
+            this.hallRightPanelsDataGridView.Columns[1].Name = "Value";
+            this.hallRightPanelsDataGridView.Columns[1].Width = this.hallRightPanelsDataGridView.Width / 2;
+            this.hallRightPanelsDataGridView.Name = "hallRightPanelsDataGridView";
+            this.hallRightPanelsDataGridView.MouseDown += new System.Windows.Forms.MouseEventHandler(this.DataGridView_ColumnHeaderMouseDown);
+            this.hallRightPanelsDataGridView.Sorted += new System.EventHandler(this.DataGridView_Sorted);
 
             // Horizontal separator initialization
             this.groupSeparator.BorderStyle = System.Windows.Forms.BorderStyle.Fixed3D;
@@ -233,15 +233,15 @@ namespace CURIOsity
             this.bimRightPanelsDataGridView.MouseDown += new System.Windows.Forms.MouseEventHandler(this.DataGridView_ColumnHeaderMouseDown);
             this.bimRightPanelsDataGridView.Sorted += new System.EventHandler(this.DataGridView_Sorted);
 
-            // "Load text file" button initialization
-            this.loadTextButton.Location = new System.Drawing.Point(172, 410);
-            this.loadTextButton.Anchor = AnchorStyles.Bottom;
-            this.loadTextButton.Name = "loadTextButton";
-            this.loadTextButton.Size = new System.Drawing.Size(120, 30);
-            this.loadTextButton.TabIndex = 1;
-            this.loadTextButton.Text = "Load text file";
-            this.loadTextButton.UseVisualStyleBackColor = true;
-            this.loadTextButton.Click += new System.EventHandler(this.LoadTextButton_OnClick);
+            // "Load hall file" button initialization
+            this.loadHallButton.Location = new System.Drawing.Point(172, 410);
+            this.loadHallButton.Anchor = AnchorStyles.Bottom;
+            this.loadHallButton.Name = "loadHallButton";
+            this.loadHallButton.Size = new System.Drawing.Size(120, 30);
+            this.loadHallButton.TabIndex = 1;
+            this.loadHallButton.Text = "Load hall file";
+            this.loadHallButton.UseVisualStyleBackColor = true;
+            this.loadHallButton.Click += new System.EventHandler(this.LoadHallButton_OnClick);
 
             // "Load BIM file" button initialization
             this.loadBimButton.Location = new System.Drawing.Point(340, 410);
@@ -266,13 +266,13 @@ namespace CURIOsity
             // Form initialization
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.ClientSize = new System.Drawing.Size(800, 450);
-            this.Controls.Add(this.curioDataGroupLabel);
-            this.Controls.Add(this.curioStagecraftDataGridViewLabel);
-            this.Controls.Add(this.curioLeftPanelsDataGridViewLabel);
-            this.Controls.Add(this.curioRightPanelsDataGridViewLabel);
-            this.Controls.Add(this.curioStagecraftDataGridView);
-            this.Controls.Add(this.curioLeftPanelsDataGridView);
-            this.Controls.Add(this.curioRightPanelsDataGridView);
+            this.Controls.Add(this.hallDataGroupLabel);
+            this.Controls.Add(this.hallStagecraftDataGridViewLabel);
+            this.Controls.Add(this.hallLeftPanelsDataGridViewLabel);
+            this.Controls.Add(this.hallRightPanelsDataGridViewLabel);
+            this.Controls.Add(this.hallStagecraftDataGridView);
+            this.Controls.Add(this.hallLeftPanelsDataGridView);
+            this.Controls.Add(this.hallRightPanelsDataGridView);
             this.Controls.Add(this.groupSeparator);
             this.Controls.Add(this.bimDataGroupLabel);
             this.Controls.Add(this.bimStagecraftDataGridViewLabel);
@@ -281,7 +281,7 @@ namespace CURIOsity
             this.Controls.Add(this.bimStagecraftDataGridView);
             this.Controls.Add(this.bimLeftPanelsDataGridView);
             this.Controls.Add(this.bimRightPanelsDataGridView);
-            this.Controls.Add(this.loadTextButton);
+            this.Controls.Add(this.loadHallButton);
             this.Controls.Add(this.loadBimButton);
             this.Controls.Add(this.updateBimButton);
             this.Name = "CURIOsity";
