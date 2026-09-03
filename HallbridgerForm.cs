@@ -8,6 +8,9 @@ using System.Drawing;
 using System.IO;
 using System.Linq;
 using System.Net.Http;
+using System.Web.Http;
+using Microsoft.Owin.Hosting;
+using Owin;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading.Tasks;
@@ -92,21 +95,26 @@ namespace Hallbridger
         private bool isFirstTabChange = true;
 
         // INI file to store configuration for future software usage
-        private readonly string iniPath = "D:\\Dateien\\Hallbridger\\Configuration\\conf.ini";
+        private readonly string iniPath = Path.Combine(Application.StartupPath, "Configuration", "conf.ini");
 
         // timers for automatic input file check
         private System.Windows.Forms.Timer realHallFileCheckTimer;
-        private string realHallFileCheckDirectory = "D:\\Dateien\\Hallbridger\\IO_files"; // default directory, can be changed in options menu
-        private string realHallFileCheckName = "Fotografia_sala_CURIO.txt"; // default file name, can be changed in options menu
-        private int realHallFileCheckInterval = 1000; // default to 1 second, can be changed in options menu
-        private bool realHallFileCheckActive = true; // default to true, can be changed in options menu
+        private string realHallFileCheckDirectory = Path.Combine(Application.StartupPath, "IO_files"); // default directory, can be changed from application settings
+        private string realHallFileCheckName = "Real_hall_snapshot.txt"; // default file name, can be changed from application settings
+        private int realHallFileCheckInterval = 1000; // default to 1 second, can be changed from application settings
+        private bool realHallFileCheckActive = true; // default to true, can be changed from application settings
 
         private System.Windows.Forms.Timer hall3DModelFileCheckTimer;
-        private string hall3DModelFileCheckDirectory = "D:\\Dateien\\Hallbridger\\IO_files"; // default directory, can be changed in options menu
-        private string hall3DModelFileCheckName = "Model.ifc"; // default file name, can be changed in options menu
-        private int hall3DModelFileCheckInterval = 1000; // default to 1 second, can be changed in options menu
-        private string hall3DModelFileCheckOperation = "Load"; // default to "Load", can be changed to "Update" in options menu
-        private bool hall3DModelFileCheckActive = true; // default to true, can be changed in options menu
+        private string hall3DModelFileCheckDirectory = Path.Combine(Application.StartupPath, "IO_files"); // default directory, can be changed from application settings
+        private string hall3DModelFileCheckName = "3D_hall_model.ifc"; // default file name, can be changed from application settings
+        private int hall3DModelFileCheckInterval = 1000; // default to 1 second, can be changed from application settings
+        private string hall3DModelFileCheckOperation = "Load"; // default operation, can be changed from application settings
+        private bool hall3DModelFileCheckActive = true; // default to true, can be changed from application settings
+
+        // class-level variable to store the API base URL for importing/exporting data
+        private string apiBaseUrl = "http://localhost:44307"; // default API base URL
+        private IDisposable apiHostInstance;
+
 
 
         /* INITIALIZATION METHODS
@@ -115,7 +123,7 @@ namespace Hallbridger
         public HallbridgerForm()
         {
             InitializeComponent();
-            this.Icon = new Icon("icon.ico");
+            this.Icon = new Icon(Path.Combine(Application.StartupPath, "icon.ico"));
         }
 
         // method to read configuration saved in INI file
@@ -127,6 +135,13 @@ namespace Hallbridger
             }
 
             var iniFile = new IniFile(iniPath);
+
+            // Read API endpoint from INI file, if it exists, and update the stored base URL
+            string savedApiUrl = iniFile.Read("API", "BaseUrl");
+            if (!string.IsNullOrWhiteSpace(savedApiUrl))
+            {
+                apiBaseUrl = savedApiUrl;
+            }
 
             // real hall file check settings
             realHallFileCheckDirectory = iniFile.Read("RealHallFileCheck", "Directory");
@@ -552,17 +567,17 @@ namespace Hallbridger
                     switch (realHallDataFileExtension)
                     {
                         case ".txt":
-                            apiEndpoint = "https://localhost:44307/api/import/txt";
+                            apiEndpoint = $"{apiBaseUrl}/api/import/txt";
                             break;
                         case ".xls":
                         case ".xlsx":
-                            apiEndpoint = "https://localhost:44307/api/import/excel";
+                            apiEndpoint = $"{apiBaseUrl}/api/import/excel";
                             break;
                         case ".json":
-                            apiEndpoint = "https://localhost:44307/api/import/json";
+                            apiEndpoint = $"{apiBaseUrl}/api/import/json";
                             break;
                         case ".xml":
-                            apiEndpoint = "https://localhost:44307/api/import/xml";
+                            apiEndpoint = $"{apiBaseUrl}/api/import/xml";
                             break;
                         default:
                             System.Windows.Forms.MessageBox.Show("File extension not supported: " + realHallDataFileExtension);
@@ -590,7 +605,7 @@ namespace Hallbridger
             {
                 loadHall3DModelDialog.Title = "Import 3D hall";
                 loadHall3DModelDialog.Filter = "3D model file (*.ifc)|*.ifc|All files (*.*)|*.*";
-                
+
                 if (loadHall3DModelDialog.ShowDialog() == DialogResult.OK)
                 {
                     string hall3DModelFileCheckPath = loadHall3DModelDialog.FileName;
@@ -697,26 +712,26 @@ namespace Hallbridger
             {
                 saveHall3DModelDataDialog.Title = "Export 3D hall data";
                 saveHall3DModelDataDialog.Filter = "Text file (*.txt)|*.txt|Excel spreadsheet (*.xls;*.xlsx)|*.xls;*.xlsx|JavaScript Object Notation file (*.json)|*.json|eXtensible Markup Language file (*.xml)|*.xml| All files (*.*)|*.*";
-                
+
                 if (saveHall3DModelDataDialog.ShowDialog() == DialogResult.OK)
                 {
                     string apiEndpoint;
                     string hall3DModelDataFileExtension = Path.GetExtension(saveHall3DModelDataDialog.FileName).ToLowerInvariant();
-                    
+
                     switch (hall3DModelDataFileExtension)
                     {
                         case ".txt":
-                            apiEndpoint = "https://localhost:44307/api/export/txt";
+                            apiEndpoint = $"{apiBaseUrl}/api/export/txt";
                             break;
                         case ".xls":
                         case ".xlsx":
-                            apiEndpoint = "https://localhost:44307/api/export/excel";
+                            apiEndpoint = $"{apiBaseUrl}/api/export/excel";
                             break;
                         case ".json":
-                            apiEndpoint = "https://localhost:44307/api/export/json";
+                            apiEndpoint = $"{apiBaseUrl}/api/export/json";
                             break;
                         case ".xml":
-                            apiEndpoint = "https://localhost:44307/api/export/xml";
+                            apiEndpoint = $"{apiBaseUrl}/api/export/xml";
                             break;
                         default:
                             System.Windows.Forms.MessageBox.Show("File extension not supported: " + hall3DModelDataFileExtension);
@@ -741,17 +756,17 @@ namespace Hallbridger
                 switch (realHallFileExtension)
                 {
                     case ".txt":
-                        apiEndpoint = "https://localhost:44307/api/import/txt";
+                        apiEndpoint = $"{apiBaseUrl}/api/import/txt";
                         break;
                     case ".xls":
                     case ".xlsx":
-                        apiEndpoint = "https://localhost:44307/api/import/excel";
+                        apiEndpoint = $"{apiBaseUrl}/api/import/excel";
                         break;
                     case ".json":
-                        apiEndpoint = "https://localhost:44307/api/import/json";
+                        apiEndpoint = $"{apiBaseUrl}/api/import/json";
                         break;
                     case ".xml":
-                        apiEndpoint = "https://localhost:44307/api/import/xml";
+                        apiEndpoint = $"{apiBaseUrl}/api/import/xml";
                         break;
                     default:
                         System.Windows.Forms.MessageBox.Show("Real hall file extension not supported: " + realHallFileExtension);
@@ -958,8 +973,8 @@ namespace Hallbridger
                 selected3DElementsPropertyWindows.Remove(globalId);
             }
 
-        // open property windows for newly selected 3D elements
-        int propertyWindowIndex = 0;
+            // open property windows for newly selected 3D elements
+            int propertyWindowIndex = 0;
 
             foreach (var element in selected3DElements)
             {
@@ -1019,15 +1034,15 @@ namespace Hallbridger
                     {
                         valueType = ComboNumericTextBox.ComboNumericValueType.Position;
                         unitOfMeasurement = UnitOfMeasurement.Meters;
-                        minimumValue = (decimal) ConvertMillimetersToMeters(minPositionMillimeters);
-                        maximumValue = (decimal) ConvertMillimetersToMeters(maxPositionMillimeters);
+                        minimumValue = (decimal)ConvertMillimetersToMeters(minPositionMillimeters);
+                        maximumValue = (decimal)ConvertMillimetersToMeters(maxPositionMillimeters);
                         var positionValue = Get3DPropertyValue(hall3DModel, globalId, "PIECE POSITION");
-                        
+
                         if (positionValue.HasValue)
                         {
-                            positionApertureValue = (decimal) positionValue.Value;
+                            positionApertureValue = (decimal)positionValue.Value;
                         }
-                        
+
                         dropdownItems = positionDropdownItems;
                     }
                     else if (typeName.StartsWith("PANEL ROTATION"))
@@ -1040,9 +1055,9 @@ namespace Hallbridger
 
                         if (apertureValue.HasValue)
                         {
-                            positionApertureValue = (decimal) apertureValue.Value;
+                            positionApertureValue = (decimal)apertureValue.Value;
                         }
-                        
+
                         dropdownItems = apertureDropdownItems;
                     }
 
@@ -1113,7 +1128,7 @@ namespace Hallbridger
                         var controlUnits = valueConfirmedArguments.ControlUnits;
                         var globalId = valueConfirmedArguments.GlobalId;
                         var valueType = valueConfirmedArguments.ValueType;
-                        var positionApertureValue = (double) valueConfirmedArguments.PositionApertureValue;
+                        var positionApertureValue = (double)valueConfirmedArguments.PositionApertureValue;
 
                         if (valueType == ComboNumericTextBox.ComboNumericValueType.Position)
                         {
@@ -1257,7 +1272,7 @@ namespace Hallbridger
                 }
             }
         }
-     
+
         // tab change event handler
         private void TabControl_SelectedIndexChanged(object sender, EventArgs e)
         {
@@ -1326,7 +1341,7 @@ namespace Hallbridger
                     // get value of the 3D property
                     if (double.TryParse(positionProperty?.NominalValue?.ToString(), System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out double position))
                     {
-                            return position;
+                        return position;
                     }
 
                     return null;
@@ -1655,7 +1670,9 @@ namespace Hallbridger
                     // select the first panel column of the current configuration in the 3D viewer (setting a list of entities to property Selection of the viewer doesn't highlight them, so we select only one entity)
                     var currentPanelSet = configuration.Value;
 
-                    if (hall3DModelLeftPanelControlUnitsComposition.TryGetValue(currentPanelSet.First(), out var globalIdList) && globalIdList.Count > 0)
+                    if (currentPanelSet.Count > 0 && // don't try to select any panel if the current configuration doesn't include any open panel (e.g. all panels closed)
+                        hall3DModelLeftPanelControlUnitsComposition.TryGetValue(currentPanelSet.First(), out var globalIdList) &&
+                        globalIdList.Count > 0)
                     {
                         var panelArray = hall3DModel.Instances
                             .OfType<IIfcFurnishingElement>()
@@ -1765,8 +1782,8 @@ namespace Hallbridger
 
         public static string FormatArcdegrees(double decimalDegrees)
         {
-            int degrees = (int) decimalDegrees;
-            int arcminutes = (int) Math.Round((decimalDegrees - degrees) * 60);
+            int degrees = (int)decimalDegrees;
+            int arcminutes = (int)Math.Round((decimalDegrees - degrees) * 60);
             if (arcminutes == 60)
             {
                 degrees += 1;
@@ -1786,125 +1803,125 @@ namespace Hallbridger
             switch (tabName)
             {
                 case "movingElementsTab":
-                { // braces to limit scope of variables
-                    // layout constants
-                    int topMargin = 16;
-                    int groupTitleHeight = 30; // height reserved for group titles
-                    int titleSpacing = 6; // distance between group title and DataGridViews
-                    int labelHeight = 20;
-                    int labelSpacing = 4; // distance between DataGridView labels and DataGridViews
-                    int groupSpacing = 32; // distance between data groups
-                    int separatorHeight = 2; // height of the separator line
-                    int buttonHeight = loadRealHallDataButton.Height;
-                    int buttonBottomMargin = 48;
-                    int DataGridViewSpacing = 12; // distance between DataGridViews
-                    int startX = 20; // starting positions for data groups
+                    { // braces to limit scope of variables
+                      // layout constants
+                        int topMargin = 16;
+                        int groupTitleHeight = 30; // height reserved for group titles
+                        int titleSpacing = 6; // distance between group title and DataGridViews
+                        int labelHeight = 20;
+                        int labelSpacing = 4; // distance between DataGridView labels and DataGridViews
+                        int groupSpacing = 32; // distance between data groups
+                        int separatorHeight = 2; // height of the separator line
+                        int buttonHeight = loadRealHallDataButton.Height;
+                        int buttonBottomMargin = 48;
+                        int DataGridViewSpacing = 12; // distance between DataGridViews
+                        int startX = 20; // starting positions for data groups
 
-                    // computed values
-                    int availableWidth = movingElementsTab.ClientSize.Width - 40;
-                    int DataGridViewWidth = (availableWidth - 2 * DataGridViewSpacing) / 3;
-                    int realHallGroupHeight = groupTitleHeight + titleSpacing + labelHeight + labelSpacing;
-                    int realHall3DModelGroupHeight = groupTitleHeight + titleSpacing + labelHeight + labelSpacing;
-                    int separatorMargin = groupSpacing / 2 + separatorHeight + 8;
-                    int totalDataGridViewHeight = movingElementsTab.ClientSize.Height - topMargin - realHallGroupHeight - realHall3DModelGroupHeight - separatorMargin - buttonHeight - buttonBottomMargin;
-                    int DataGridViewHeight = totalDataGridViewHeight / 2; //each group takes half of the available space
+                        // computed values
+                        int availableWidth = movingElementsTab.ClientSize.Width - 40;
+                        int DataGridViewWidth = (availableWidth - 2 * DataGridViewSpacing) / 3;
+                        int realHallGroupHeight = groupTitleHeight + titleSpacing + labelHeight + labelSpacing;
+                        int realHall3DModelGroupHeight = groupTitleHeight + titleSpacing + labelHeight + labelSpacing;
+                        int separatorMargin = groupSpacing / 2 + separatorHeight + 8;
+                        int totalDataGridViewHeight = movingElementsTab.ClientSize.Height - topMargin - realHallGroupHeight - realHall3DModelGroupHeight - separatorMargin - buttonHeight - buttonBottomMargin;
+                        int DataGridViewHeight = totalDataGridViewHeight / 2; //each group takes half of the available space
 
-                    // place elements
-                    PlaceGroupsAndSeparator_MovingElementsTab(topMargin, groupTitleHeight, titleSpacing, labelHeight, labelSpacing, groupSpacing, separatorHeight, startX, availableWidth, DataGridViewHeight);
-                    PlaceDataGridViews_MovingElementsTab(topMargin, groupTitleHeight, titleSpacing, labelHeight, labelSpacing, DataGridViewSpacing, startX, DataGridViewWidth, DataGridViewHeight, groupSpacing, separatorHeight);
-                    PlaceButtons_MovingElementsTab(buttonHeight);
+                        // place elements
+                        PlaceGroupsAndSeparator_MovingElementsTab(topMargin, groupTitleHeight, titleSpacing, labelHeight, labelSpacing, groupSpacing, separatorHeight, startX, availableWidth, DataGridViewHeight);
+                        PlaceDataGridViews_MovingElementsTab(topMargin, groupTitleHeight, titleSpacing, labelHeight, labelSpacing, DataGridViewSpacing, startX, DataGridViewWidth, DataGridViewHeight, groupSpacing, separatorHeight);
+                        PlaceButtons_MovingElementsTab(buttonHeight);
 
-                    // adapt DataGridView columns to available width
-                    AdaptDataGridViewSizes(realHallStagecraftDataGridView);
-                    AdaptDataGridViewSizes(realHallLeftPanelsDataGridView);
-                    AdaptDataGridViewSizes(realHallRightPanelsDataGridView);
-                    AdaptDataGridViewSizes(hall3DModelStagecraftDataGridView);
-                    AdaptDataGridViewSizes(hall3DModelLeftPanelsDataGridView);
-                    AdaptDataGridViewSizes(hall3DModelRightPanelsDataGridView);
+                        // adapt DataGridView columns to available width
+                        AdaptDataGridViewSizes(realHallStagecraftDataGridView);
+                        AdaptDataGridViewSizes(realHallLeftPanelsDataGridView);
+                        AdaptDataGridViewSizes(realHallRightPanelsDataGridView);
+                        AdaptDataGridViewSizes(hall3DModelStagecraftDataGridView);
+                        AdaptDataGridViewSizes(hall3DModelLeftPanelsDataGridView);
+                        AdaptDataGridViewSizes(hall3DModelRightPanelsDataGridView);
 
-                    break;
-                }
+                        break;
+                    }
                 case "acousticsTab":
-                { // braces to limit scope of variables
-                  // layout constants
-                    int margin = 20;
-                    int labelHeight = 28;
-                    int labelSpacing = 8;
-                    int viewerMargin = 24;
-                    int minGridWidth = 240;
-                    int minViewerWidth = 320;
-                    int gridHeight = 300;
-                    int buttonSpacing = 16;
-                    int controlsMargin = 12;
+                    { // braces to limit scope of variables
+                      // layout constants
+                        int margin = 20;
+                        int labelHeight = 28;
+                        int labelSpacing = 8;
+                        int viewerMargin = 24;
+                        int minGridWidth = 240;
+                        int minViewerWidth = 320;
+                        int gridHeight = 300;
+                        int buttonSpacing = 16;
+                        int controlsMargin = 12;
 
-                    // proportionally adapt the width of the elements depending on the window size, from minWidth (by minWidth of the window) to maxWidth (by maxWidth of the window)
-                    int tabWidth = acousticsTab.Width;
-                    int tabHeight = acousticsTab.Height;
+                        // proportionally adapt the width of the elements depending on the window size, from minWidth (by minWidth of the window) to maxWidth (by maxWidth of the window)
+                        int tabWidth = acousticsTab.Width;
+                        int tabHeight = acousticsTab.Height;
 
-                    double minWidth = 800.0, maxWidth = 1920.0;
-                    double minProportion = 0.5, maxProportion = 0.3;
-                    double proportion = minProportion;
+                        double minWidth = 800.0, maxWidth = 1920.0;
+                        double minProportion = 0.5, maxProportion = 0.3;
+                        double proportion = minProportion;
 
-                    if (tabWidth > minWidth)
-                    {
-                        proportion = minProportion - (tabWidth - minWidth) * (minProportion - maxProportion) / (maxWidth - minWidth);
-
-                        if (proportion < maxProportion)
+                        if (tabWidth > minWidth)
                         {
-                            proportion = maxProportion;
+                            proportion = minProportion - (tabWidth - minWidth) * (minProportion - maxProportion) / (maxWidth - minWidth);
+
+                            if (proportion < maxProportion)
+                            {
+                                proportion = maxProportion;
+                            }
                         }
+
+                        int gridWidth = (int)Math.Round(tabWidth * proportion);
+
+                        if (gridWidth < minGridWidth)
+                        {
+                            gridWidth = minGridWidth;
+                        }
+
+                        int viewerWidth = tabWidth - gridWidth - 3 * viewerMargin;
+
+                        if (viewerWidth < minViewerWidth)
+                        {
+                            viewerWidth = minViewerWidth;
+                        }
+
+                        // place global RT values DataGridView
+                        globalRtDataGridView.Left = margin;
+                        globalRtDataGridView.Top = tabHeight - gridHeight - margin;
+                        globalRtDataGridView.Width = gridWidth;
+                        globalRtDataGridView.Height = gridHeight;
+
+                        // place global RT values DataGridView title
+                        globalRtDataGridViewLabel.Left = globalRtDataGridView.Left + (globalRtDataGridView.Width - globalRtDataGridViewLabel.Width) / 2;
+                        globalRtDataGridViewLabel.Width = gridWidth;
+                        globalRtDataGridViewLabel.Height = labelHeight;
+                        globalRtDataGridViewLabel.Top = globalRtDataGridView.Top - labelHeight - labelSpacing;
+
+                        // place 3D hall viewer
+                        int controlsHeight = Math.Max(repositionButton.Height, highSpeedCheckBox.Height);
+
+                        hall3DModelViewerHost.Left = gridWidth + 2 * viewerMargin;
+                        hall3DModelViewerHost.Top = margin;
+                        hall3DModelViewerHost.Width = viewerWidth;
+                        hall3DModelViewerHost.Height = tabHeight - 2 * margin - controlsHeight - controlsMargin; // compute height to leave room for Button and Checkbox
+
+                        // place "Reposition" button and "High performance mode" checkbox one aside the other in the bottom-right part of the tab below the 3D viewer
+                        int totalControlsWidth = repositionButton.Width + buttonSpacing + highSpeedCheckBox.Width;
+                        int controlsLeft = hall3DModelViewerHost.Left + hall3DModelViewerHost.Width - totalControlsWidth;
+                        int controlsTop = hall3DModelViewerHost.Top + hall3DModelViewerHost.Height + controlsMargin;
+
+                        repositionButton.Left = controlsLeft;
+                        repositionButton.Top = controlsTop;
+
+                        highSpeedCheckBox.Left = repositionButton.Right + buttonSpacing;
+                        highSpeedCheckBox.Top = controlsTop + (repositionButton.Height - highSpeedCheckBox.Height) / 2;
+
+                        // adapt DataGridView sizes to available room
+                        AdaptDataGridViewSizes(globalRtDataGridView);
+
+                        break;
                     }
-
-                    int gridWidth = (int)Math.Round(tabWidth * proportion);
-
-                    if (gridWidth < minGridWidth)
-                    {
-                        gridWidth = minGridWidth;
-                    }
-
-                    int viewerWidth = tabWidth - gridWidth - 3 * viewerMargin;
-
-                    if (viewerWidth < minViewerWidth)
-                    {
-                        viewerWidth = minViewerWidth;
-                    }
-
-                    // place global RT values DataGridView
-                    globalRtDataGridView.Left = margin;
-                    globalRtDataGridView.Top = tabHeight - gridHeight - margin;
-                    globalRtDataGridView.Width = gridWidth;
-                    globalRtDataGridView.Height = gridHeight;
-
-                    // place global RT values DataGridView title
-                    globalRtDataGridViewLabel.Left = globalRtDataGridView.Left + (globalRtDataGridView.Width - globalRtDataGridViewLabel.Width) / 2;
-                    globalRtDataGridViewLabel.Width = gridWidth;
-                    globalRtDataGridViewLabel.Height = labelHeight;
-                    globalRtDataGridViewLabel.Top = globalRtDataGridView.Top - labelHeight - labelSpacing;
-
-                    // place 3D hall viewer
-                    int controlsHeight = Math.Max(repositionButton.Height, highSpeedCheckBox.Height);
-
-                    hall3DModelViewerHost.Left = gridWidth + 2 * viewerMargin;
-                    hall3DModelViewerHost.Top = margin;
-                    hall3DModelViewerHost.Width = viewerWidth;
-                    hall3DModelViewerHost.Height = tabHeight - 2 * margin - controlsHeight - controlsMargin; // compute height to leave room for Button and Checkbox
-
-                    // place "Reposition" button and "High performance mode" checkbox one aside the other in the bottom-right part of the tab below the 3D viewer
-                    int totalControlsWidth = repositionButton.Width + buttonSpacing + highSpeedCheckBox.Width;
-                    int controlsLeft = hall3DModelViewerHost.Left + hall3DModelViewerHost.Width - totalControlsWidth;
-                    int controlsTop = hall3DModelViewerHost.Top + hall3DModelViewerHost.Height + controlsMargin;
-
-                    repositionButton.Left = controlsLeft;
-                    repositionButton.Top = controlsTop;
-
-                    highSpeedCheckBox.Left = repositionButton.Right + buttonSpacing;
-                    highSpeedCheckBox.Top = controlsTop + (repositionButton.Height - highSpeedCheckBox.Height) / 2;
-
-                    // adapt DataGridView sizes to available room
-                    AdaptDataGridViewSizes(globalRtDataGridView);
-
-                    break;
-                }
                 default:
                     break;
             }
@@ -2157,9 +2174,9 @@ namespace Hallbridger
             panelConfigurations.Add("CLOSED", new HashSet<string> { });
             panelConfigurations.Add("2F", new HashSet<string> { "PS.001", "PS.002", "PS.003", "PD.001", "PD.002", "PD.003" });
             panelConfigurations.Add("2C", new HashSet<string> { "PS.004", "PS.005", "PS.006", "PS.007", "PD.004", "PD.005", "PD.006", "PD.007" });
-            panelConfigurations.Add("1F", new HashSet<string> { "PS.012", "PS.013", "PS.014", "PS.015", "PD.012", "PD.013", "PD.014", "PD.015" });
-            panelConfigurations.Add("1C", new HashSet<string> { "PS.016", "PS.017", "PS.018", "PS.019", "PD.016", "PD.017", "PD.018", "PD.019" });
-            panelConfigurations.Add("1P", new HashSet<string> { "PS.020", "PS.021", "PS.022", "PS.023", "PD.020", "PD.021", "PD.022", "PD.023" });
+            panelConfigurations.Add("1F", new HashSet<string> { "PS.012", "PS.013", "PS.014", "PS.015", "PD.012", "PD.013", "PD.014", "PD.15" });
+            panelConfigurations.Add("1C", new HashSet<string> { "PS.016", "PS.017", "PS.018", "PS.019", "PD.016", "PD.017", "PD.018", "PD.19" });
+            panelConfigurations.Add("1P", new HashSet<string> { "PS.020", "PS.021", "PS.022", "PS.023", "PD.020", "PD.021", "PD.022", "PD.23" });
             panelConfigurations.Add("0C", new HashSet<string> { "PS.024", "PS.025", "PS.026", "PD.024", "PD.025", "PD.026" });
             panelConfigurations.Add("1FC", new HashSet<string> { "PS.012", "PS.013", "PS.014", "PS.015", "PS.016", "PS.017", "PS.018", "PS.019", "PD.012", "PD.013", "PD.014", "PD.015", "PD.016", "PD.017", "PD.018", "PD.019" });
             panelConfigurations.Add("1FCP", new HashSet<string> { "PS.012", "PS.013", "PS.014", "PS.015", "PS.016", "PS.017", "PS.018", "PS.019", "PS.020", "PS.021", "PS.022", "PS.023", "PD.012", "PD.013", "PD.014", "PD.015", "PD.016", "PD.017", "PD.018", "PD.019", "PD.020", "PD.021", "PD.022", "PD.023" });
@@ -2196,13 +2213,13 @@ namespace Hallbridger
             hall3DModelLeftPanelControlUnitsComposition.Add("PS.013", new List<string> { "IfcPanel_022", "IfcPanel_023" });
             hall3DModelLeftPanelControlUnitsComposition.Add("PS.014", new List<string> { "IfcPanel_024", "IfcPanel_025" });
             hall3DModelLeftPanelControlUnitsComposition.Add("PS.015", new List<string> { "IfcPanel_026" });
-            hall3DModelLeftPanelControlUnitsComposition.Add("PS.016", new List<string> { "IfcPanel_027", "IfcPanel_028" });
-            hall3DModelLeftPanelControlUnitsComposition.Add("PS.017", new List<string> { "IfcPanel_029", "IfcPanel_030" });
-            hall3DModelLeftPanelControlUnitsComposition.Add("PS.018", new List<string> { "IfcPanel_031", "IfcPanel_032" });
-            hall3DModelLeftPanelControlUnitsComposition.Add("PS.019", new List<string> { "IfcPanel_033", "IfcPanel_034" });
-            hall3DModelLeftPanelControlUnitsComposition.Add("PS.020", new List<string> { "IfcPanel_035", "IfcPanel_036" });
-            hall3DModelLeftPanelControlUnitsComposition.Add("PS.021", new List<string> { "IfcPanel_037", "IfcPanel_038" });
-            hall3DModelLeftPanelControlUnitsComposition.Add("PS.022", new List<string> { "IfcPanel_039", "IfcPanel_040" });
+            hall3DModelLeftPanelControlUnitsComposition.Add("PS.016", new List<string> { "IfcPanel_027", "IfcPanel_28" });
+            hall3DModelLeftPanelControlUnitsComposition.Add("PS.017", new List<string> { "IfcPanel_029", "IfcPanel_30" });
+            hall3DModelLeftPanelControlUnitsComposition.Add("PS.018", new List<string> { "IfcPanel_031", "IfcPanel_32" });
+            hall3DModelLeftPanelControlUnitsComposition.Add("PS.019", new List<string> { "IfcPanel_033", "IfcPanel_34" });
+            hall3DModelLeftPanelControlUnitsComposition.Add("PS.020", new List<string> { "IfcPanel_035", "IfcPanel_36" });
+            hall3DModelLeftPanelControlUnitsComposition.Add("PS.021", new List<string> { "IfcPanel_037", "IfcPanel_38" });
+            hall3DModelLeftPanelControlUnitsComposition.Add("PS.022", new List<string> { "IfcPanel_039", "IfcPanel_40" });
             hall3DModelLeftPanelControlUnitsComposition.Add("PS.023", new List<string> { "IfcPanel_041", "IfcPanel_042" });
             hall3DModelLeftPanelControlUnitsComposition.Add("PS.024", new List<string> { "0eZ9VepF9FQO1sL1JkDygu", "0eZ9VepF9FQO1sL1JkD$9U" });
             hall3DModelLeftPanelControlUnitsComposition.Add("PS.025", new List<string> { "0eZ9VepF9FQO1sL1JkD$92", "0eZ9VepF9FQO1sL1JkD$9v" });
@@ -2255,6 +2272,17 @@ namespace Hallbridger
             // refresh component views of the current tab
             LayOutComponents(mainTabControl.SelectedTab);
         }
+
+        protected override void OnFormClosed(FormClosedEventArgs e)
+        {
+            base.OnFormClosed(e);
+
+            // Dispose API host and free the port when the application closes
+            if (apiHostInstance != null)
+            {
+                apiHostInstance.Dispose();
+            }
+        }
     }
 
     // auxiliary class to read INI files
@@ -2283,4 +2311,16 @@ namespace Hallbridger
             WritePrivateProfileString(section, key, value, Path);
         }
     }
+
+    // API hosting class for the Hallbridger API
+    public class Startup
+    {
+        public void Configuration(IAppBuilder app)
+        {
+            HttpConfiguration config = new HttpConfiguration();
+            Hallbridger_API.WebApiConfig.Register(config);
+            app.UseWebApi(config);
+        }
+    }
+
 }
